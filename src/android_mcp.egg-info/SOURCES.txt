@@ -1,0 +1,13 @@
+LICENSE
+README.md
+pyproject.toml
+src/android_mcp/__init__.py
+src/android_mcp/adb_client.py
+src/android_mcp/server.py
+src/android_mcp/ui_parser.py
+src/android_mcp.egg-info/PKG-INFO
+src/android_mcp.egg-info/SOURCES.txt
+src/android_mcp.egg-info/dependency_links.txt
+src/android_mcp.egg-info/entry_points.txt
+src/android_mcp.egg-info/requires.txt
+src/android_mcp.egg-info/top_level.txt

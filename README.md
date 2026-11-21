@@ -124,6 +124,3 @@ android-mcp/
 
 ## Licencia
 MIT
-
-<FollowUp label="¿Quieres que genere ahora el docker-compose.yml y el código base de mcp-server?" query="Genera el docker-compose.yml, el Dockerfile y el código en Python (server.py, adb_client.py y ui_parser.py) siguiendo exactamente la estructura del README."/>
-
