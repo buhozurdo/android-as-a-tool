@@ -1,76 +1,76 @@
-# Directivas y Protocolos para Agentes de IA (AGENTS.md)
+# AI Agent Directives & Operational Protocols (AGENTS.md)
 
-Este documento contiene las reglas de operación, comportamiento y estándares que todo agente de IA (asistente de código, orquestador o subagente) debe respetar al trabajar en el proyecto **Android-MCP (`android-as-a-tool`)**.
-
----
-
-## 1. Principios Fundamentales
-
-1. **Seguridad y Aislamiento Primero (Zero Trust & Sandboxing)**:
-   - Nunca expongas el puerto ADB (`5555`) a redes públicas o interfaces externas (`0.0.0.0`). Mantén la comunicación estrictamente en localhost o red interna de Docker.
-   - Respeta los guardrails de validación de URLs (`anti-ssrf`) al procesar fuentes para `install_apk`. Nunca descargues APKs desde endpoints de metadatos de nube (`169.254.169.254`) o redes privadas no autorizadas.
-   - Aplica sanitización de PII al leer notificaciones (`get_notifications`) para evitar que números de cuenta, tarjetas o datos personales se filtren al historial de conversación o logs externos del LLM.
-   - Respeta estrictamente los guardrails definidos en `guardrails/`.
-
-2. **Optimización de Tokens y Eficiencia de Contexto**:
-   - En lugar de enviar volcados XML completos de `uiautomator` o capturas de pantalla pesadas por defecto, utiliza el parser de compresión (`UIParser`) devolviendo únicamente elementos interactivos y sus centroides `(cx, cy)`.
-   - Utiliza capturas de pantalla (`take_screenshot`) únicamente cuando sea estrictamente necesario para WebViews, juegos o verificación visual compleja.
-
-3. **Verificación y Menor Impacto**:
-   - Toda modificación debe mantener la suite de pruebas unitarias (`python -m pytest`) al 100% de aprobación.
-   - Mantén la compatibilidad con el modo simulado (`mock_mode=True`), de modo que el proyecto pueda probarse de forma continua en entornos headless y pipelines CI/CD sin requerir un emulador Android físico encendido.
+This document establishes the operational rules, behavior guidelines, and development standards that every AI agent (coding assistant, supervisor, or subagent) must adhere to when working on the **Android-MCP (`android-as-a-tool`)** project.
 
 ---
 
-## 2. Protocolo de Calidad Progresiva: De "Óptimo y Aceptable" a "Bien Hecho"
+## 1. Core Principles
 
-El desarrollo en este repositorio implementa un **enfoque iterativo en dos fases obligatorias**:
+1. **Security & Sandboxing First (Zero Trust)**:
+   - Never expose the ADB port (`5555`) to public networks or external interfaces (`0.0.0.0`). Strictly restrict communication to localhost or Docker internal bridge networks.
+   - Respect URL validation guardrails (`anti-ssrf`) when handling sources for `install_apk`. Never download APKs from cloud metadata endpoints (`169.254.169.254`) or unauthorized private subnets.
+   - Enforce PII sanitization when reading notifications (`get_notifications`) to prevent bank accounts, credit cards, or personal emails from leaking into LLM conversation logs.
+   - Strictly honor guardrail policies configured in `guardrails/`.
+
+2. **Token Efficiency & Context Optimization**:
+   - Never feed raw `uiautomator` XML dumps or heavy screenshots by default. Always leverage `UIParser` to return token-compressed JSON containing only interactive elements and their centroid coordinates `(cx, cy)`.
+   - Use screenshots (`take_screenshot`) only when strictly necessary for WebViews, games, or complex visual verification.
+
+3. **Verification & Minimal Blast Radius**:
+   - Every change must maintain the test suite (`python -m pytest`) at 100% pass rate.
+   - Preserve deterministic simulation mode (`mock_mode=True`) so the project can be tested reliably in headless environments and CI/CD pipelines without physical emulators.
+
+---
+
+## 2. Progressive Quality Protocol: From "Optimal & Acceptable" to "Well-Crafted"
+
+Development in this repository strictly enforces a **two-phase iterative quality workflow**:
 
 ```
-[ Requerimiento ] ──▶ [ Fase 1: Óptimo y Aceptable ] ──▶ [ Fase 2: Bien Hecho (Excelencia) ] ──▶ [ Producción ]
-                             (MVP Sólido y Limpio)             (Hardening, Tipado y Resiliencia)
+[ Requirement ] ──▶ [ Phase 1: Optimal & Acceptable ] ──▶ [ Phase 2: Well-Crafted (Excellence) ] ──▶ [ Production ]
+                               (Solid & Clean MVP)               (Hardening, Typing & Resilience)
 ```
 
-### Fase 1: Estado "Óptimo y Aceptable" (Gate 1 - Obligatorio antes de avanzar)
-*Objetivo: Obtener una solución funcional, simple y verificable sin agregar complejidad innecesaria.*
-- **Funcionalidad directa**: Resuelve el comando o herramienta MCP requerida sin efectos secundarios.
-- **Simplicidad (YAGNI)**: Prefiere la librería estándar (`urllib`, `xml.etree.ElementTree`, `re`, `subprocess`) antes de dependencias externas innecesarias.
-- **Seguridad básica**: Cero secretos o credenciales expuestas en el código fuente.
-- **Prueba mínima funcional**: Toda nueva herramienta debe contar con su correspondiente test en `tests/` y caso de prueba en `evals/`.
-- **Higiene de código**: Cero código muerto. Si se difiere una optimización, debe marcarse explícitamente con `# DEBT: <motivo>`.
+### Phase 1: "Optimal & Acceptable" State (Gate 1 - Mandatory before advancing)
+*Goal: Obtain a simple, working, and verifiable solution without speculative complexity.*
+- **Direct functionality**: Solves the requested MCP tool or command with zero side effects.
+- **Simplicity (YAGNI)**: Favor standard library modules (`urllib`, `xml.etree.ElementTree`, `re`, `subprocess`) before pulling in unneeded external packages.
+- **Baseline security**: Zero hardcoded secrets or credentials in source code.
+- **Minimal test coverage**: Every new tool must include corresponding unit tests in `tests/` and test cases in `evals/`.
+- **Code hygiene**: Zero dead code. If an optimization is deferred, it must be explicitly marked with `# DEBT: <reason>`.
 
-### Fase 2: Estado "Bien Hecho" (Gate 2 - Objetivo Final de Producción)
-*Objetivo: Endurecer la solución para alcanzar estándares de excelencia, alta mantenibilidad y resiliencia empresarial.*
-- **Tipado estricto y contratos**: Type hints completos en firmas públicas y validación de esquemas JSON / Pydantic.
-- **Manejo defensivo de excepciones**: Captura de errores específicos (`subprocess.TimeoutExpired`, `SubprocessError`, `ValueError`); prohibido silenciar excepciones (`except Exception: pass`).
-- **Resiliencia en ADB y uiautomator**: Manejo de timeouts configurables (`timeout=15.0`) y reintentos ante pantallas en transición.
-- **Validación de entradas y salidas**: Verificación anti-inyección en `type_text` y validación de sintaxis de bounds en `UIParser`.
-- **Documentación y Trazabilidad**: Docstrings completos y actualización de [RELEASE.md](file:///c:/Users/rkens/Project/BuhoZurdo/Public/android-as-a-tool/RELEASE.md).
+### Phase 2: "Well-Crafted" State (Gate 2 - Production Excellence Target)
+*Goal: Harden the implementation to achieve enterprise-grade resilience, maintainability, and security.*
+- **Strict typing & contracts**: Complete type annotations on public signatures and validation of JSON / Pydantic schemas.
+- **Defensive exception handling**: Explicitly catch domain exceptions (`subprocess.TimeoutExpired`, `SubprocessError`, `ValueError`); silent suppression (`except Exception: pass`) is prohibited.
+- **ADB & UI resilience**: Configurable timeouts (`timeout=15.0`) and graceful handling of screen transitions.
+- **Input/Output validation**: Anti-injection checks on `type_text` and robust bounds parsing in `UIParser`.
+- **Documentation & Traceability**: Clear docstrings and version synchronization in [RELEASE.md](file:///c:/Users/rkens/Project/BuhoZurdo/Public/android-as-a-tool/RELEASE.md).
 
-> ⚠️ **Regla de Oro**: Ninguna tarea se entrega en modo "rápido e incompleto". Primero se asegura un estado **Óptimo y Aceptable** y, de inmediato sobre esa base sólida, se refactoriza y endurece hasta alcanzar el estado **Bien Hecho**.
+> ⚠️ **Golden Rule**: No task is delivered in a "quick and incomplete" state. First establish a solid **Optimal & Acceptable** foundation, then immediately refactor and harden it to the **Well-Crafted** standard.
 
 ---
 
-## 3. Catálogo de Herramientas MCP Soportadas
+## 3. Supported MCP Tools Catalog
 
-| Categoría | Herramienta | Parámetros | Comportamiento Esperado |
+| Category | Tool | Parameters | Expected Behavior |
 | :--- | :--- | :--- | :--- |
-| **App Lifecycle** | `install_apk` | `source: str` | Instala APK local o URL validada anti-SSRF. |
-| | `list_apps` | `third_party_only: bool` | Lista paquetes con filtro de sistema. |
-| | `launch_app` | `package: str` | Lanza app vía intent `monkey` sin requerir MainActivity. |
-| | `uninstall_app` | `package: str` | Desinstala paquete de usuario. |
-| **UI Interaction** | `get_screen_elements` | `clickable_only: bool` | Devuelve árbol comprimido con centroides `(cx, cy)`. |
-| | `tap` | `x: int, y: int` | Toca coordenada calculada de centroide. |
-| | `long_press` | `x: int, y: int, duration_ms: int` | Mantiene pulsado para menús contextuales. |
-| | `type_text` | `text: str` | Escribe texto con escape de comillas y encoding `%s`. |
-| | `swipe` | `direction: str` | Desliza pantalla (`up`, `down`, `left`, `right`). |
-| | `press_key` | `key: str` | Envía `HOME`, `BACK`, `ENTER`, `APP_SWITCH`. |
-| **Context & Vision** | `take_screenshot` | — | Captura en Base64 PNG solo si es indispensable. |
-| | `get_notifications` | — | Extrae OTP/2FA y alertas con sanitización PII. |
+| **App Lifecycle** | `install_apk` | `source: str` | Installs local APK or anti-SSRF validated remote URL. |
+| | `list_apps` | `third_party_only: bool` | Lists installed packages with system filter. |
+| | `launch_app` | `package: str` | Launches app via launcher intent without requiring MainActivity. |
+| | `uninstall_app` | `package: str` | Uninstalls package from device. |
+| **UI Interaction** | `get_screen_elements` | `clickable_only: bool` | Returns compressed element tree with `(cx, cy)` centroids. |
+| | `tap` | `x: int, y: int` | Taps calculated centroid coordinates. |
+| | `long_press` | `x: int, y: int, duration_ms: int` | Long presses for contextual menus. |
+| | `type_text` | `text: str` | Types text with quote escaping and `%s` space encoding. |
+| | `swipe` | `direction: str` | Swipes display (`up`, `down`, `left`, `right`). |
+| | `press_key` | `key: str` | Sends keyevents (`HOME`, `BACK`, `ENTER`, `APP_SWITCH`). |
+| **Context & Vision** | `take_screenshot` | — | Base64 PNG capture when visual inspection is necessary. |
+| | `get_notifications` | — | Reads system alerts and OTP/2FA with PII redaction. |
 
 ---
 
-## 4. Estándares de Commits y Versionado
+## 4. Commits & Versioning Standards
 
-- Usa mensajes de commit semánticos (`feat:`, `fix:`, `docs:`, `eval:`, `refactor:`, `test:`).
-- Sigue el proceso y checklists establecidos en [RELEASE.md](file:///c:/Users/rkens/Project/BuhoZurdo/Public/android-as-a-tool/RELEASE.md) bajo SemVer 2.0.0.
+- Use semantic commit messages (`feat:`, `fix:`, `docs:`, `eval:`, `refactor:`, `test:`).
+- Follow the release checklist and tagging conventions in [RELEASE.md](file:///c:/Users/rkens/Project/BuhoZurdo/Public/android-as-a-tool/RELEASE.md) adhering to SemVer 2.0.0.

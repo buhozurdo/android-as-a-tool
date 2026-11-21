@@ -7,12 +7,14 @@ for unit testing, CI pipelines, and environments without active emulators.
 from __future__ import annotations
 
 import base64
+import functools
 import os
 import re
 import shlex
 import shutil
 import subprocess
 import time
+from enum import IntEnum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -42,6 +44,13 @@ KEY_MAPPINGS: Dict[str, int] = {
     "PAGE_DOWN": 93,
     "APP_SWITCH": 187,
     "MENU": 82,
+}
+
+# Pre-compiled fast lookup table with pre-normalized keys
+FAST_KEY_MAPPINGS: Dict[str, int] = {
+    **KEY_MAPPINGS,
+    **{k.lower(): code for k, code in KEY_MAPPINGS.items()},
+    **{str(code): code for code in KEY_MAPPINGS.values()},
 }
 
 SAMPLE_UIAUTOMATOR_XML = """<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
@@ -74,6 +83,22 @@ Notification Record:
   text=Updates completed for 3 applications.
   time=2026-11-20T22:15:00Z
 """
+
+
+@functools.lru_cache(maxsize=32)
+def _interpolate_swipe_coords(w: int, h: int, direction: str) -> Optional[Tuple[int, int, int, int]]:
+    """Pre-calculated cached coordinate interpolation for directional swipes."""
+    cx, cy = w // 2, h // 2
+    d = direction.lower().strip()
+    if d == "up":
+        return (cx, int(h * 0.8), cx, int(h * 0.2))
+    elif d == "down":
+        return (cx, int(h * 0.2), cx, int(h * 0.8))
+    elif d == "left":
+        return (int(w * 0.85), cy, int(w * 0.15), cy)
+    elif d == "right":
+        return (int(w * 0.15), cy, int(w * 0.85), cy)
+    return None
 
 
 class ADBClient:
@@ -275,21 +300,12 @@ class ADBClient:
     def swipe(self, direction: str) -> str:
         """Swipe screen in specified direction ('up', 'down', 'left', 'right')."""
         w, h = self.get_resolution()
-        cx, cy = w // 2, h // 2
-
-        d = direction.lower().strip()
-        if d == "up":
-            # Swipe from lower half to upper half
-            x1, y1, x2, y2 = cx, int(h * 0.8), cx, int(h * 0.2)
-        elif d == "down":
-            x1, y1, x2, y2 = cx, int(h * 0.2), cx, int(h * 0.8)
-        elif d == "left":
-            x1, y1, x2, y2 = int(w * 0.85), cy, int(w * 0.15), cy
-        elif d == "right":
-            x1, y1, x2, y2 = int(w * 0.15), cy, int(w * 0.85), cy
-        else:
+        coords = _interpolate_swipe_coords(w, h, direction)
+        if coords is None:
             return f"Error: Invalid direction '{direction}'. Choose from 'up', 'down', 'left', 'right'."
 
+        x1, y1, x2, y2 = coords
+        d = direction.lower().strip()
         self.recorded_actions.append({"action": "swipe", "direction": d, "coords": (x1, y1, x2, y2)})
         if self.mock_mode:
             return f"Swiped {d} ({x1},{y1}) -> ({x2},{y2})"
@@ -298,14 +314,20 @@ class ADBClient:
 
     def press_key(self, key: str) -> str:
         """Send keyevent (e.g. HOME, BACK, ENTER, APP_SWITCH)."""
-        k = key.upper().strip()
-        keycode = KEY_MAPPINGS.get(k)
+        k = key.strip()
+        keycode = FAST_KEY_MAPPINGS.get(k)
         if keycode is None:
-            # Check if integer was passed
-            if k.isdigit():
-                keycode = int(k)
+            k_upper = k.upper()
+            keycode = FAST_KEY_MAPPINGS.get(k_upper)
+            if keycode is None:
+                if k.isdigit():
+                    keycode = int(k)
+                else:
+                    return f"Error: Unknown key '{key}'. Supported: {list(KEY_MAPPINGS.keys())}"
             else:
-                return f"Error: Unknown key '{key}'. Supported: {list(KEY_MAPPINGS.keys())}"
+                k = k_upper
+        else:
+            k = k.upper()
 
         self.recorded_actions.append({"action": "press_key", "key": k, "keycode": keycode})
         if self.mock_mode:
@@ -357,19 +379,19 @@ class ADBClient:
                     notifications.append(current)
                 current = {}
             elif line_str.startswith("pkg="):
-                m = re.search(r"pkg=([^\s]+)", line_str)
-                if m:
-                    current["package"] = m.group(1)
+                pkg_val = line_str[4:].split(None, 1)[0]
+                if pkg_val:
+                    current["package"] = pkg_val
             elif line_str.startswith("title="):
-                current["title"] = line_str.replace("title=", "").strip()
+                current["title"] = line_str[6:].strip()
             elif line_str.startswith("text="):
-                current["text"] = line_str.replace("text=", "").strip()
+                current["text"] = line_str[5:].strip()
             elif line_str.startswith("tickerText="):
-                ticker = line_str.replace("tickerText=", "").strip()
+                ticker = line_str[11:].strip()
                 if ticker and ticker != "null":
                     current["ticker"] = ticker
             elif line_str.startswith("time="):
-                current["time"] = line_str.replace("time=", "").strip()
+                current["time"] = line_str[5:].strip()
 
         if current and ("title" in current or "text" in current or "ticker" in current):
             notifications.append(current)

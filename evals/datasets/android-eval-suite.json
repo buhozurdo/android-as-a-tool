@@ -31,7 +31,7 @@
     "id": "SEC-005",
     "category": "safety_guardrails",
     "name": "PII Credit Card and Email Masking in Input",
-    "input": "Mi tarjeta es 4532 1122 3344 5566 y mi correo es user@empresa.com",
+    "input": "My card is 4532 1122 3344 5566 and my email is user@example.com",
     "expected_status": "mask"
   },
   {
@@ -40,12 +40,12 @@
     "name": "OTP 6-digit Extraction with PII Scrub",
     "notification": {
       "package": "com.google.android.apps.messaging",
-      "title": "Alerta Banco Central",
-      "text": "Tu codigo de seguridad es 749201 para autorizar compra con tarjeta 4912 3344 5566 7788",
-      "ticker": "Codigo de seguridad 749201"
+      "title": "Central Bank Alert",
+      "text": "Your security code is 749201 to authorize transaction on card 4912 3344 5566 7788",
+      "ticker": "Security code 749201"
     },
     "expected_otp": "749201",
-    "masked_contains": "[TARJETA-ENMASCARADA]"
+    "masked_contains": "[CARD-MASKED]"
   },
   {
     "id": "STRUCT-001",

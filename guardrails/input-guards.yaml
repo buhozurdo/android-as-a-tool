@@ -1,9 +1,9 @@
 version: "1.0"
-description: "Reglas de validación y sanitización para entradas del usuario y llamadas a herramientas en Android-MCP"
+description: "Validation and sanitization rules for user input and agent tool invocations in Android-MCP"
 
 rules:
   - id: "prompt-injection-jailbreak"
-    description: "Detecta patrones comunes de jailbreak y manipulación de directivas del sistema"
+    description: "Detects common jailbreak and prompt injection patterns"
     action: "block"
     severity: "high"
     patterns:
@@ -15,7 +15,7 @@ rules:
       - "(?i)act\\s+as\\s+(an?\\s+unfiltered|an?\\s+unrestricted)"
 
   - id: "anti-ssrf-apk-url"
-    description: "Bloquea descargas de APK desde metadata de nube (169.254.169.254), loopback o direcciones locales no autorizadas"
+    description: "Blocks APK downloads from cloud metadata (169.254.169.254), loopback, or unauthorized internal subnets"
     action: "block"
     severity: "critical"
     patterns:
@@ -24,7 +24,7 @@ rules:
       - "(?i)file:///"
 
   - id: "adb-shell-injection"
-    description: "Detecta intentos de inyección de comandos en shell y cadenas maliciosas en type_text"
+    description: "Detects shell command injection and destructive command chaining in type_text"
     action: "block"
     severity: "high"
     patterns:
@@ -33,7 +33,7 @@ rules:
       - "(`[^`]+`|\\$\\([^\\)]+\\))"
 
   - id: "detect-mask-secrets"
-    description: "Detecta y enmascara claves de API, tokens y credenciales en parámetros de entrada"
+    description: "Detects and masks API keys, bearer tokens, and credentials in input arguments"
     action: "mask"
     severity: "critical"
     patterns:
@@ -44,11 +44,11 @@ rules:
       - "(?i)bearer\\s+[a-zA-Z0-9_\\-\\.]{20,}"
 
   - id: "detect-mask-pii"
-    description: "Detecta y enmascara PII (tarjetas de crédito, correos) en mensajes y notificaciones"
+    description: "Detects and masks personally identifiable information (credit cards, emails)"
     action: "mask"
     severity: "medium"
     patterns:
-      # Tarjetas de crédito aproximadas (13-16 dígitos agrupados)
+      # Credit card numbers (grouped 13-16 digits)
       - "\\b(?:\\d{4}[ -]?){3}\\d{4}\\b"
-      # Correo electrónico
+      # Email address
       - "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}"

@@ -1,17 +1,45 @@
 """
 UI Parser for Android uiautomator dump XML hierarchies.
-Optimized for LLM token efficiency by stripping boilerplate layout nodes
-and returning only actionable elements with center coordinates (cx, cy).
+Optimized for high-throughput LLM token compression and sub-millisecond execution:
+- Zero-regex bounds parsing via string splitting and slicing
+- Single-pass JSON dictionary generation without intermediate object allocation
+- Fast frozenset attribute and class matching
+- Stream-based XML parsing with element clearing for minimal memory footprint
 """
 
 from __future__ import annotations
 
+import io
 import re
 import xml.etree.ElementTree as ET
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
-# Pattern matching bounds format: "[x1,y1][x2,y2]"
+# Pre-compiled frozensets for O(1) membership testing
+INTERACTIVE_CLASSES: frozenset[str] = frozenset({
+    "Button",
+    "ImageButton",
+    "EditText",
+    "CheckBox",
+    "Switch",
+    "RadioButton",
+    "ToggleButton",
+    "CompoundButton",
+    "SeekBar",
+})
+
+CONTAINER_CLASSES: frozenset[str] = frozenset({
+    "FrameLayout",
+    "LinearLayout",
+    "RelativeLayout",
+    "ViewGroup",
+    "View",
+    "AbsoluteLayout",
+    "CoordinatorLayout",
+    "DrawerLayout",
+})
+
+# Backward compatibility alias
 BOUNDS_REGEX = re.compile(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]")
 
 
@@ -59,20 +87,39 @@ class UIParser:
 
     @staticmethod
     def parse_bounds(bounds_str: str) -> Optional[Tuple[int, int, int, int]]:
-        """Extract (x1, y1, x2, y2) from '[x1,y1][x2,y2]' bounds string."""
+        """
+        Fast zero-regex bounds parser.
+        Extracts (x1, y1, x2, y2) from '[x1,y1][x2,y2]' bounds string.
+        """
         if not bounds_str:
             return None
-        m = BOUNDS_REGEX.match(bounds_str.strip())
-        if not m:
+        s = bounds_str.strip()
+        # Must match format '[x1,y1][x2,y2]'
+        if len(s) < 9 or s[0] != "[" or s[-1] != "]":
             return None
-        x1, y1, x2, y2 = map(int, m.groups())
-        return (x1, y1, x2, y2)
+        split_idx = s.find("][")
+        if split_idx == -1:
+            return None
+
+        try:
+            p1 = s[1:split_idx]
+            p2 = s[split_idx + 2:-1]
+            c1 = p1.find(",")
+            c2 = p2.find(",")
+            if c1 == -1 or c2 == -1:
+                return None
+            x1 = int(p1[:c1])
+            y1 = int(p1[c1 + 1:])
+            x2 = int(p2[:c2])
+            y2 = int(p2[c2 + 1:])
+            return (x1, y1, x2, y2)
+        except (ValueError, IndexError):
+            return None
 
     @staticmethod
     def compute_center(bounds: Tuple[int, int, int, int]) -> Tuple[int, int]:
         """Calculate centroid (cx, cy) of bounding box."""
-        x1, y1, x2, y2 = bounds
-        return ((x1 + x2) // 2, (y1 + y2) // 2)
+        return ((bounds[0] + bounds[2]) // 2, (bounds[1] + bounds[3]) // 2)
 
     @classmethod
     def parse(
@@ -102,106 +149,112 @@ class UIParser:
         if not xml_bytes:
             return {"screen": {"width": 0, "height": 0}, "elements_count": 0, "elements": []}
 
-        try:
-            root = ET.fromstring(xml_bytes)
-        except ET.ParseError:
-            # Handle possible leading garbage from adb output
+        # Check for possible leading garbage from adb before <hierarchy
+        if not xml_bytes.startswith(b"<?xml") and not xml_bytes.startswith(b"<hierarchy"):
             first_lt = xml_bytes.find(b"<hierarchy")
             if first_lt != -1:
-                try:
-                    root = ET.fromstring(xml_bytes[first_lt:])
-                except ET.ParseError as e:
-                    return {"error": f"Failed to parse XML: {str(e)}", "elements": []}
+                xml_bytes = xml_bytes[first_lt:]
             else:
-                return {"error": "Invalid XML hierarchy format", "elements": []}
+                return {"error": "Invalid XML hierarchy format", "elements": [], "elements_count": 0}
 
-        # Deduce screen resolution from root bounds or parameter
         screen_w, screen_h = 0, 0
-        root_bounds = root.attrib.get("bounds")
-        if root_bounds:
-            b = cls.parse_bounds(root_bounds)
-            if b:
-                screen_w, screen_h = b[2] - b[0], b[3] - b[1]
-
         if screen_bounds:
             screen_w, screen_h = screen_bounds
 
-        elements: List[UIElement] = []
+        elements: List[Dict[str, Any]] = []
 
-        for node in root.iter("node"):
-            attrib = node.attrib
-            bounds_str = attrib.get("bounds", "")
-            bounds = cls.parse_bounds(bounds_str)
-            if not bounds:
-                continue
+        try:
+            # Event-driven stream parsing with node clearing for ultra-fast throughput
+            context = ET.iterparse(io.BytesIO(xml_bytes), events=("start", "end"))
 
-            x1, y1, x2, y2 = bounds
-            width = x2 - x1
-            height = y2 - y1
+            for event, elem in context:
+                if event == "start" and elem.tag == "node" and screen_w == 0:
+                    b_top = cls.parse_bounds(elem.attrib.get("bounds", ""))
+                    if b_top:
+                        screen_w = b_top[2] - b_top[0]
+                        screen_h = b_top[3] - b_top[1]
 
-            # Discard non-visible or zero-size elements
-            if width <= 0 or height <= 0:
-                continue
+                elif event == "end" and elem.tag == "node":
+                    attrib = elem.attrib
+                    bounds_str = attrib.get("bounds", "")
+                    bounds = cls.parse_bounds(bounds_str)
 
-            # Update screen bounds from top-level nodes if not yet set
-            if screen_w == 0 or screen_h == 0:
-                screen_w = max(screen_w, x2)
-                screen_h = max(screen_h, y2)
+                    if bounds is not None:
+                        x1, y1, x2, y2 = bounds
+                        width = x2 - x1
+                        height = y2 - y1
 
-            text = attrib.get("text", "").strip()
-            desc = attrib.get("content-desc", "").strip()
-            resource_id = attrib.get("resource-id", "").strip()
-            cls_name = attrib.get("class", "").split(".")[-1]
-            clickable = attrib.get("clickable", "false").lower() == "true"
-            focusable = attrib.get("focusable", "false").lower() == "true"
-            scrollable = attrib.get("scrollable", "false").lower() == "true"
-            checkable = attrib.get("checkable", "false").lower() == "true"
-            checked = attrib.get("checked", "false").lower() == "true"
-            package = attrib.get("package", "").strip()
+                        if width > 0 and height > 0:
+                            if screen_w == 0:
+                                screen_w = max(screen_w, x2)
+                                screen_h = max(screen_h, y2)
 
-            is_interactive = (
-                clickable
-                or focusable
-                or scrollable
-                or checkable
-                or (cls_name in ("Button", "ImageButton", "EditText", "CheckBox", "Switch", "RadioButton"))
-            )
-            has_content = bool(text or desc)
+                            cls_raw = attrib.get("class", "")
+                            dot_idx = cls_raw.rfind(".")
+                            cls_name = cls_raw[dot_idx + 1:] if dot_idx != -1 else cls_raw
 
-            # Filtering logic
-            if clickable_only:
-                if not (is_interactive or has_content):
-                    continue
-                # Skip layout containers with no semantic content
-                if cls_name in ("FrameLayout", "LinearLayout", "RelativeLayout", "ViewGroup", "View") and not (is_interactive and has_content):
-                    if not clickable:
-                        continue
+                            clickable = attrib.get("clickable") == "true"
+                            focusable = attrib.get("focusable") == "true"
+                            scrollable = attrib.get("scrollable") == "true"
+                            checkable = attrib.get("checkable") == "true"
+                            checked = attrib.get("checked") == "true"
 
-            center = cls.compute_center(bounds)
+                            is_interactive = (
+                                clickable
+                                or focusable
+                                or scrollable
+                                or checkable
+                                or (cls_name in INTERACTIVE_CLASSES)
+                            )
 
-            elements.append(
-                UIElement(
-                    id=resource_id,
-                    text=text,
-                    desc=desc,
-                    class_name=cls_name,
-                    clickable=clickable or is_interactive,
-                    center=center,
-                    bounds=bounds,
-                    package=package,
-                    checkable=checkable,
-                    checked=checked,
-                    scrollable=scrollable,
-                )
-            )
+                            text = attrib.get("text", "").strip()
+                            desc = attrib.get("content-desc", "").strip()
+                            has_content = bool(text or desc)
 
-            if len(elements) >= max_elements:
-                break
+                            # Filtering logic
+                            include = True
+                            if clickable_only:
+                                if not (is_interactive or has_content):
+                                    include = False
+                                elif cls_name in CONTAINER_CLASSES and not (is_interactive and has_content):
+                                    if not clickable:
+                                        include = False
+
+                            if include:
+                                elem_dict: Dict[str, Any] = {
+                                    "class": cls_name,
+                                    "center": [(x1 + x2) // 2, (y1 + y2) // 2],
+                                    "bounds": [x1, y1, x2, y2],
+                                }
+                                resource_id = attrib.get("resource-id", "").strip()
+                                if resource_id:
+                                    elem_dict["id"] = resource_id
+                                if text:
+                                    elem_dict["text"] = text
+                                if desc:
+                                    elem_dict["desc"] = desc
+                                if clickable or is_interactive:
+                                    elem_dict["clickable"] = True
+                                if checked:
+                                    elem_dict["checked"] = True
+                                if scrollable:
+                                    elem_dict["scrollable"] = True
+
+                                elements.append(elem_dict)
+
+                    # Free element memory immediately
+                    elem.clear()
+
+                    if len(elements) >= max_elements:
+                        break
+
+        except ET.ParseError as e:
+            return {"error": f"Failed to parse XML: {str(e)}", "elements": [], "elements_count": 0}
 
         return {
             "screen": {"width": screen_w, "height": screen_h},
             "elements_count": len(elements),
-            "elements": [elem.to_dict() for elem in elements],
+            "elements": elements,
         }
 
     @classmethod

@@ -1,10 +1,10 @@
 """
-Script de análisis estático y auditoría de Quality Gates para Android-MCP:
-- Conteo de líneas y tipos de archivo
-- Detección de TODOs, FIXMEs y deuda técnica documentada (# DEBT:)
-- Detección de antipatrones (except Exception: pass)
-- Escaneo de secretos hardcodeados
-- Evaluación de Quality Gates: 'Óptimo y Aceptable' (Gate 1) y 'Bien Hecho' (Gate 2)
+Static analysis and Quality Gate auditing script for Android-MCP:
+- Line counts and file types
+- Detection of TODOs, FIXMEs, and documented debt (# DEBT:)
+- Detection of anti-patterns (except Exception: pass)
+- Secret credential scanning
+- Quality Gate evaluation: 'Optimal & Acceptable' (Gate 1) and 'Well-Crafted' (Gate 2)
 """
 
 from __future__ import annotations
@@ -70,7 +70,7 @@ def analyze_repository(target_dir: Path | None = None) -> Dict[str, Any]:
                         stats["total_lines"] += len(lines)
 
                         for idx, line in enumerate(lines, 1):
-                            # Secreto
+                            # Secrets check
                             for pattern in SECRET_PATTERNS:
                                 if pattern.search(line) and "pattern" not in line.lower() and "regex" not in line.lower():
                                     stats["potential_secrets"].append({
@@ -79,7 +79,7 @@ def analyze_repository(target_dir: Path | None = None) -> Dict[str, Any]:
                                         "preview": line.strip()[:60],
                                     })
 
-                            # TODO / BUG
+                            # TODO / BUG tags
                             todo_match = CODE_TODO_PATTERN.search(line)
                             if todo_match:
                                 stats["todos"].append({
@@ -89,7 +89,7 @@ def analyze_repository(target_dir: Path | None = None) -> Dict[str, Any]:
                                     "note": todo_match.group(3).strip(),
                                 })
 
-                            # Deuda documentada
+                            # Documented debt
                             debt_match = DEBT_PATTERN.search(line)
                             if debt_match:
                                 stats["documented_debt"].append({
@@ -98,7 +98,7 @@ def analyze_repository(target_dir: Path | None = None) -> Dict[str, Any]:
                                     "note": debt_match.group(2).strip(),
                                 })
 
-                            # Antipatrones (excluyendo comentarios y docstrings)
+                            # Anti-patterns (excluding comments and docstrings)
                             stripped = line.strip()
                             if ext in CODE_EXTENSIONS and not stripped.startswith(("#", "-", "*", '"""', "'''")) and SILENT_EXCEPT_PATTERN.search(line):
                                 stats["anti_patterns"].append({
@@ -109,34 +109,34 @@ def analyze_repository(target_dir: Path | None = None) -> Dict[str, Any]:
                                 })
 
                 except Exception as err:
-                    print(f"[Aviso] No se pudo leer {rel_path}: {err}", file=sys.stderr)
+                    print(f"[Warning] Failed reading {rel_path}: {err}", file=sys.stderr)
 
     g1 = stats["quality_gates"]["gate_1_optimal_and_acceptable"]
     g2 = stats["quality_gates"]["gate_2_well_crafted"]
 
-    # Gate 1: Óptimo y Aceptable
+    # Gate 1: Optimal and Acceptable
     if stats["potential_secrets"]:
         g1["passed"] = False
-        g1["reasons"].append(f"Se encontraron {len(stats['potential_secrets'])} posibles secretos hardcodeados.")
+        g1["reasons"].append(f"Found {len(stats['potential_secrets'])} potential hardcoded secrets.")
     if stats["files_scanned"] == 0:
         g1["passed"] = False
-        g1["reasons"].append("No se escanearon archivos.")
+        g1["reasons"].append("No files were scanned.")
 
     if not g1["reasons"]:
-        g1["reasons"].append("Base sólida aprobada: sin secretos expuestos y estructura modular verificada.")
+        g1["reasons"].append("Solid baseline verified: zero exposed secrets and modular architecture.")
 
-    # Gate 2: Bien Hecho (Excelencia)
+    # Gate 2: Well-Crafted (Excellence)
     if stats["anti_patterns"]:
         g2["passed"] = False
-        g2["reasons"].append(f"Se detectaron {len(stats['anti_patterns'])} antipatrones en el código fuente.")
+        g2["reasons"].append(f"Detected {len(stats['anti_patterns'])} anti-patterns in source code.")
 
     unresolved_bugs = [t for t in stats["todos"] if t["tag"] == "BUG"]
     if unresolved_bugs:
         g2["passed"] = False
-        g2["reasons"].append(f"Existen {len(unresolved_bugs)} marcas de BUG pendientes en el código.")
+        g2["reasons"].append(f"Found {len(unresolved_bugs)} unresolved BUG markers in source code.")
 
     if not g2["reasons"]:
-        g2["reasons"].append("Estándares de excelencia alcanzados: sin antipatrones, sin bugs abiertos y tipado limpio.")
+        g2["reasons"].append("Excellence standards met: zero anti-patterns, zero open bugs, and clean typing.")
 
     return stats
 

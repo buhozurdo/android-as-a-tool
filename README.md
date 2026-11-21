@@ -1,89 +1,129 @@
-# Android-MCP: Control Universal de Android para LLMs
+# Android-MCP: Universal Android Control for LLM Agents
 
-Un entorno aislado de **Android en Docker (`redroid`)** acoplado a un **servidor MCP (Model Context Protocol)** sobre HTTP/SSE. Permite que cualquier agente o LLM opere el dispositivo completo —instalar apps, navegar interfaces, leer notificaciones y ejecutar acciones— sin necesidad de construir integraciones individuales por aplicación.
+An isolated **Android environment in Docker (`redroid`)** coupled with a **Model Context Protocol (MCP)** server over HTTP/SSE and stdio. It enables any AI agent or LLM (Claude Desktop, Cursor, LangChain, custom frameworks) to operate the entire mobile device—installing apps, navigating UI hierarchies, reading notifications, and executing gestures—without building brittle per-application integrations.
 
 ---
 
-## Arquitectura
+## 🏛️ Architecture
 
 ```text
-┌─────────────────────────┐      HTTP / SSE (MCP)       ┌─────────────────────────────┐
-│   Cliente MCP / Agente  │ ◄─────────────────────────► │     Servidor MCP (Python)   │
-│ (Claude, Cursor, etc.)  │     http://localhost:8000   │   FastMCP + UI XML Parser   │
+┌─────────────────────────┐      HTTP / SSE / Stdio     ┌─────────────────────────────┐
+│   MCP Client / Agent    │ ◄─────────────────────────► │     MCP Server (Python)     │
+│ (Claude, Cursor, etc.)  │     http://localhost:8000   │  FastMCP + UI Token Parser  │
 └─────────────────────────┘                             └──────────────┬──────────────┘
                                                                        │ ADB (TCP :5555)
                                                                        ▼
                                                         ┌─────────────────────────────┐
-                                                        │   Android Virtual (redroid) │
-                                                        │  Kernel nativo + /data vol  │
+                                                        │  Virtual Android (redroid)  │
+                                                        │  Native Kernel + /data vol  │
                                                         └─────────────────────────────┘
 ```
 
-¿Por qué este enfoque?
- * Una sola integración ("Android-as-a-Tool"): El LLM interactúa con cualquier app igual que un humano, eliminando integraciones frágiles por API.
- * Optimizado para tokens: En lugar de enviar capturas de pantalla constantes o XMLs gigantes, el servidor MCP parsea uiautomator dump y devuelve un JSON compacto únicamente con los elementos interactivos y sus coordenadas centrales (cx, cy).
- * Entorno desechable: El estado de Android vive en un volumen Docker (/data), lo que permite resetear el dispositivo a un estado limpio en segundos.
-Prerrequisitos
- * Sistema Operativo: Linux (recomendado Ubuntu/Debian) con soporte para módulos de kernel de Android.
- * Docker y Docker Compose v2+.
-Habilita los módulos requeridos en el host Linux:
+### Why this approach?
+* **Single Integration ("Android-as-a-Tool")**: The LLM interacts with any application just like a human user, eliminating the need to maintain bespoke REST/GraphQL connectors per service.
+* **Token-Optimized UI Parsing**: Instead of sending expensive screenshots or raw 100KB–300KB XML dumps from `uiautomator`, the server parses and compresses the hierarchy into lightweight JSON (~2-5KB) providing actionable elements and exact centroids `(cx, cy)` for zero-math tapping.
+* **Disposable Sandbox**: The Android OS state lives in an isolated volume (`/data`), enabling clean resets to a pristine snapshot in seconds.
+* **Enterprise Guardrails & Evals**: Built-in anti-SSRF protection for APK installations, ADB shell injection defense, and PII masking for OTP/2FA notification retrieval.
+
+---
+
+## 📋 Prerequisites
+
+* **Operating System**: Linux (recommended Ubuntu/Debian) with Android kernel module support, or macOS / Windows with a native Android emulator or physical device.
+* **Docker & Docker Compose v2+** (for redroid virtual stack).
+
+Enable required kernel modules on Linux hosts:
+```bash
 sudo apt install -y linux-modules-extra-$(uname -r)
 sudo modprobe binder_linux devices="binder,hwbinder,vndbinder"
 sudo modprobe ashmem_linux
+```
 
-> Nota para macOS / Windows: Docker en estos sistemas no expone los módulos del kernel necesarios para redroid. En ese caso, levanta un emulador nativo en tu host y ejecuta únicamente el contenedor del servidor MCP apuntando a host.docker.internal:5555.
-> 
+> **Note for macOS / Windows users:** Docker on macOS and Windows does not expose the Android kernel modules required by redroid. In that case, run a local Android emulator (Android Studio / Genymotion) or connect a physical device via USB, then point the MCP server to `localhost:5555` or your host emulator port.
 
-## Inicio Rápido
+---
 
- * Clona el repositorio:
-   git clone [https://github.com/buhozurdo/android-as-a-tool.git](https://github.com/buhozurdo/android-as-a-tool.git)
-cd android-mcp
+## 🚀 Quickstart
 
- * Configura las variables de entorno (opcional):
-   cp .env.example .env
+### 1. Clone and Install
+```bash
+git clone https://github.com/buhozurdo/android-as-a-tool.git
+cd android-as-a-tool
 
- * Levanta el stack:
-   docker compose up -d --build
+# Install package and dependencies
+pip install -e ".[mcp,test]"
+```
 
- * Verifica que ambos servicios estén activos:
-   docker compose logs -f mcp-server
+### 2. Run Environment Doctor
+Check that your environment, ADB bridge, and security guardrails are operational:
+```bash
+python skills/android-doctor/scripts/doctor.py
+```
 
-   El servidor MCP quedará disponible en http://localhost:8000/mcp.
+### 3. Launch MCP Server
+Run locally over standard I/O (compatible with Claude Desktop, Cursor, etc.):
+```bash
+android-mcp
+```
+Or start via Docker Compose:
+```bash
+docker compose up -d --build
+```
+The MCP server endpoint will be available at `http://localhost:8000/mcp`.
 
-## Herramientas (Tools) Expuestas por el MCP
+---
 
-### Gestión de Aplicaciones
+## 🛠️ MCP Tools Catalog
 
-| Tool | Parámetros | Descripción |
+### Application Lifecycle
+
+| Tool | Parameters | Description |
 |---|---|---|
-| install_apk | source: str | Instala un .apk desde una URL o ruta en el volumen /apks. |
-| list_apps | third_party_only: bool | Lista los paquetes instalados en el dispositivo. |
-| launch_app | package: str | Abre una aplicación directamente por su nombre de paquete. |
-| uninstall_app | package: str | Desinstala una aplicación del dispositivo. |
+| `install_apk` | `source: str` | Installs an `.apk` from a local path or validated remote URL (anti-SSRF protected). |
+| `list_apps` | `third_party_only: bool` | Lists installed application package names on the device. |
+| `launch_app` | `package: str` | Launches an application directly by package name using launcher intent resolution. |
+| `uninstall_app` | `package: str` | Uninstalls an application package from the device. |
 
-## Interacción UI
+### UI Navigation & Interaction
 
-| Tool | Parámetros | Descripción |
+| Tool | Parameters | Description |
 |---|---|---|
-| get_screen_elements | clickable_only: bool | Devuelve el árbol UI filtrado en JSON con texto, ID y coordenadas (cx, cy). |
-| tap | x: int, y: int | Toca una coordenada específica en pantalla. |
-| long_press | x: int, y: int, duration_ms: int | Mantiene presionado un punto en pantalla. |
-| type_text | text: str | Escribe texto en el campo activo. |
-| swipe | direction: str | Desliza la pantalla (up, down, left, right). |
-| press_key | key: str | Envía eventos de sistema (HOME, BACK, ENTER, APP_SWITCH). |
+| `get_screen_elements` | `clickable_only: bool` | Returns compressed UI elements JSON with text, resource ID, and `(cx, cy)` centroids. |
+| `tap` | `x: int, y: int` | Taps at specific screen coordinates `(x, y)`. |
+| `long_press` | `x: int, y: int, duration_ms: int` | Holds a touch at `(x, y)` for `duration_ms` milliseconds. |
+| `type_text` | `text: str` | Types text into the currently focused input field with shell escaping. |
+| `swipe` | `direction: str` | Swipes the screen in a given direction (`up`, `down`, `left`, `right`). |
+| `press_key` | `key: str` | Sends hardware navigation keyevents (`HOME`, `BACK`, `ENTER`, `APP_SWITCH`). |
 
-## Contexto y Visión
+### Context & Perception
 
-| Tool | Parámetros | Descripción |
+| Tool | Parameters | Description |
 |---|---|---|
-| take_screenshot | — | Captura la pantalla actual en formato base64 (ideal para WebViews o contenido visual). |
-| get_notifications | — | Lee las notificaciones activas del sistema (útil para códigos OTP/2FA). |
+| `take_screenshot` | — | Captures device display as a Base64-encoded PNG (for WebViews or visual verification). |
+| `get_notifications` | — | Reads active system notifications with automated PII redaction and OTP extraction. |
 
-## Conectar un Cliente MCP
+---
 
-Agrega el servidor remoto a la configuración de tu cliente MCP (por ejemplo, Claude Desktop, Cursor o tu propio orquestador):
+## 🔌 Connecting MCP Clients
 
+### Claude Desktop
+Add to your `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "android-device": {
+      "command": "android-mcp",
+      "env": {
+        "ANDROID_ADB_HOST": "localhost",
+        "ANDROID_ADB_PORT": "5555"
+      }
+    }
+  }
+}
+```
+
+### Remote HTTP / SSE Client (Cursor, Custom Agents)
 ```json
 {
   "mcpServers": {
@@ -94,33 +134,71 @@ Agrega el servidor remoto a la configuración de tu cliente MCP (por ejemplo, Cl
 }
 ```
 
-## Instalación de Apps en el Dispositivo
+---
 
-Tienes tres formas de darle acceso a aplicaciones al agente:
- * Volumen local de APKs: Coloca archivos .apk en la carpeta ./apks (montada en /apks dentro del contenedor) y pide al LLM que ejecute install_apk.
- * Aurora Store (Sin cuenta de Google): Instala Aurora Store vía APK para que el LLM pueda buscar y descargar apps directamente desde el catálogo de Play Store de forma anónima.
- * Google Play Store (GApps): Cambia la imagen de redroid en docker-compose.yml por una compilación con GApps/MindTheGapps e inicia sesión una sola vez en el volumen persistente /data.
+## 🛡️ Enterprise Security Guardrails
 
-## Estructura del Proyecto
+Android-MCP integrates a zero-dependency safety engine in `guardrails/`:
+* **Anti-SSRF URL Validation**: Rejects `install_apk` downloads targeting cloud metadata services (`169.254.169.254`, `metadata.google.internal`), loopback addresses, and private RFC 1918 subnets.
+* **ADB Shell Injection Defense**: Intercepts command chaining (`rm -rf`, `reboot`, subshells `$()`, backticks, pipes) in `type_text`.
+* **PII Sanitization**: Redacts credit card numbers and personal emails in notifications, keeping 2FA/OTP tokens intact for automated verification flows.
+* **JSON Schema Verification**: Enforces valid JSON formatting on structured outputs before dispatching them to LLMs.
 
-```text
-android-mcp/
-├── docker-compose.yml      # Orquestación de redroid + servidor MCP
-├── .env.example            # Variables de entorno (resolución, DPI, puerto MCP)
-├── apks/                   # Carpeta montada para instalación local de APKs
-└── mcp-server/
-    ├── Dockerfile          # Imagen Python + android-tools-adb
-    ├── requirements.txt    # fastmcp, uvicorn, lxml, pillow
-    ├── server.py           # Definición de tools MCP
-    ├── adb_client.py       # Wrapper de comandos ADB
-    └── ui_parser.py        # Compresor de XML (uiautomator) a JSON ligero
+---
+
+## 🧪 Evaluation Framework & Benchmarks
+
+Run automated benchmarks to evaluate security, UI centroid math, and OTP retention:
+
+```bash
+# Run evaluations and generate Markdown report in analysis-reporte/
+python evals/evaluators/eval_runner.py --report
 ```
 
-## Seguridad y Aislamiento
+---
 
- * No exponer el puerto ADB (5555) al host público: Mantén la comunicación entre mcp-server y redroid estrictamente dentro de la red interna de Docker.
- * Autenticación en MCP: Si despliegas este stack fuera de localhost, coloca un reverse proxy (Nginx, Traefik o Cloudflare Tunnel) con autenticación por Bearer Token o Access.
- * Cuentas de prueba: Utiliza cuentas desechables o de sandbox dentro del dispositivo virtual; nunca credenciales personales críticas.
+## 🩺 Agent Skills
 
-## Licencia
-MIT
+Modular skills located in `skills/` allow agents and developers to audit and monitor the environment:
+* **`code-analyzer`**: Audits codebase compliance against Quality Gates (Gate 1 "Optimal and Acceptable", Gate 2 "Well-Crafted").
+  ```bash
+  python skills/code-analyzer/scripts/analyze.py
+  ```
+* **`android-doctor`**: Performs health checks on ADB connectivity, screen resolution, and guardrails.
+  ```bash
+  python skills/android-doctor/scripts/doctor.py
+  ```
+
+---
+
+## 🧪 Running Tests
+
+Run the full pytest suite (compatible with mock simulation mode without a running device):
+
+```bash
+python -m pytest -v
+```
+
+---
+
+## 📁 Repository Structure
+
+```text
+android-as-a-tool/
+├── AGENTS.md               # Quality protocols & agent directives (Gate 1 & Gate 2)
+├── RELEASE.md              # Branching strategy, checklist & release notes
+├── pyproject.toml          # Modern PEP 517/518 build configuration
+├── src/android_mcp/        # Core package
+│   ├── adb_client.py       # ADB bridge wrapper with deterministic mock mode
+│   ├── server.py           # FastMCP / MCPServer tool registry
+│   └── ui_parser.py        # Token-compact UI hierarchy compressor
+├── guardrails/             # Security engine (Anti-SSRF, PII, Shell defense)
+├── evals/                  # Automated eval benchmarks and runner
+├── skills/                 # Agent diagnostic and audit skills
+└── tests/                  # Unit and integration test suite
+```
+
+---
+
+## 📄 License
+[MIT](LICENSE) © BuhoZurdo Team

@@ -66,9 +66,9 @@ class TestAndroidGuardrails:
     def test_notification_pii_sanitizer(self):
         notif = {
             "package": "com.bank.app",
-            "title": "Alerta de Transferencia",
-            "text": "Tu codigo de verificacion es 883921 para tu tarjeta 4111 2222 3333 4444 enviada a user@bank.com",
-            "ticker": "Codigo 883921",
+            "title": "Transfer Alert",
+            "text": "Your verification code is 883921 for transaction on card 4111 2222 3333 4444 sent to user@bank.com",
+            "ticker": "Code 883921",
         }
         cleaned = self.engine.sanitize_notification(notif)
 
@@ -78,9 +78,9 @@ class TestAndroidGuardrails:
 
         # Credit card & email are masked
         assert "4111 2222 3333 4444" not in cleaned["text"]
-        assert "[TARJETA-ENMASCARADA]" in cleaned["text"]
+        assert "[CARD-MASKED]" in cleaned["text"]
         assert "user@bank.com" not in cleaned["text"]
-        assert "[EMAIL-ENMASCARADO]" in cleaned["text"]
+        assert "[EMAIL-MASKED]" in cleaned["text"]
 
     def test_output_json_structure_validation(self):
         # Valid JSON

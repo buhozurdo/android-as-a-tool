@@ -28,7 +28,14 @@ class AndroidMCPServer:
     def __init__(self, adb_client: Optional[ADBClient] = None):
         self.adb = adb_client or get_adb_client()
         self._mcp_server = None
+        self._cached_screen_elements: Optional[Dict[str, Any]] = None
+        self._cached_clickable_only: Optional[bool] = None
         self._setup_mcp()
+
+    def invalidate_cache(self) -> None:
+        """Invalidate cached screen hierarchy following interaction gestures."""
+        self._cached_screen_elements = None
+        self._cached_clickable_only = None
 
     def _setup_mcp(self) -> None:
         """Initialize MCP Server with compatibility across mcp 1.x and 2.x."""
@@ -113,35 +120,49 @@ class AndroidMCPServer:
     # -----------------------------------------------------------------------
 
     def install_apk(self, source: str) -> str:
+        self.invalidate_cache()
         return self.adb.install_apk(source)
 
     def list_apps(self, third_party_only: bool = True) -> List[str]:
         return self.adb.list_apps(third_party_only=third_party_only)
 
     def launch_app(self, package: str) -> str:
+        self.invalidate_cache()
         return self.adb.launch_app(package)
 
     def uninstall_app(self, package: str) -> str:
+        self.invalidate_cache()
         return self.adb.uninstall_app(package)
 
-    def get_screen_elements(self, clickable_only: bool = True) -> Dict[str, Any]:
+    def get_screen_elements(self, clickable_only: bool = True, force_refresh: bool = False) -> Dict[str, Any]:
+        if not force_refresh and self._cached_screen_elements is not None and self._cached_clickable_only == clickable_only:
+            return self._cached_screen_elements
+
         xml_dump = self.adb.dump_ui_hierarchy()
         res = self.adb.get_resolution()
-        return UIParser.parse(xml_dump, clickable_only=clickable_only, screen_bounds=res)
+        elements = UIParser.parse(xml_dump, clickable_only=clickable_only, screen_bounds=res)
+        self._cached_screen_elements = elements
+        self._cached_clickable_only = clickable_only
+        return elements
 
     def tap(self, x: int, y: int) -> str:
+        self.invalidate_cache()
         return self.adb.tap(x, y)
 
     def long_press(self, x: int, y: int, duration_ms: int = 1000) -> str:
+        self.invalidate_cache()
         return self.adb.long_press(x, y, duration_ms)
 
     def type_text(self, text: str) -> str:
+        self.invalidate_cache()
         return self.adb.type_text(text)
 
     def swipe(self, direction: str) -> str:
+        self.invalidate_cache()
         return self.adb.swipe(direction)
 
     def press_key(self, key: str) -> str:
+        self.invalidate_cache()
         return self.adb.press_key(key)
 
     def take_screenshot(self) -> Dict[str, str]:

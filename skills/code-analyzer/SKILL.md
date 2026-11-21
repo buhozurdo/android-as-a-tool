@@ -1,23 +1,23 @@
 ---
 name: code-analyzer
-description: Realiza un escaneo estático y auditoría de calidad evaluando Quality Gates: 'Óptimo y Aceptable' (Gate 1) y 'Bien Hecho' (Gate 2).
+description: Performs static quality gate audits checking Gate 1 ('Optimal & Acceptable') and Gate 2 ('Well-Crafted').
 ---
 
 # Code Analyzer Skill
 
-## Propósito
-Permite al agente auditor o desarrollador evaluar objetivamente la calidad del código en Android-MCP, asegurando el cumplimiento de los Quality Gates del protocolo `AGENTS.md`.
+## Purpose
+Enables code reviewers and AI agents to objectively assess codebase quality against the two-phase quality protocol in `AGENTS.md`.
 
-## Quality Gates Auditadas
-1. **Gate 1 - Óptimo y Aceptable**:
-   - Cero secretos expuestos o credenciales hardcodeadas.
-   - Integridad estructural y lectura sin fallos.
-2. **Gate 2 - Bien Hecho**:
-   - Cero antipatrones de silenciamiento de errores (`except Exception: pass`).
-   - Cero comentarios de `BUG:` sin resolver en código fuente.
-   - Seguimiento explícito de deuda técnica documentada (`# DEBT:`).
+## Audited Quality Gates
+1. **Gate 1 - Optimal & Acceptable**:
+   - Zero exposed secrets or hardcoded credentials.
+   - Structural integrity and readable files.
+2. **Gate 2 - Well-Crafted**:
+   - Zero silent exception suppression (`except Exception: pass`).
+   - Zero unresolved `BUG:` comments in source code.
+   - Explicit tracking of documented technical debt (`# DEBT:`).
 
-## Ejecución
+## Execution
 ```bash
 python skills/code-analyzer/scripts/analyze.py
 ```

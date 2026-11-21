@@ -1,7 +1,7 @@
 """
-Guardrails Engine para Android-MCP (Android-as-a-Tool).
-Proporciona validación y sanitización para entradas de agentes, fuentes de APK,
-comandos hacia la shell ADB y datos sensibles en notificaciones.
+Guardrails Engine for Android-MCP (Android-as-a-Tool).
+Provides validation and sanitization for agent inputs, APK sources,
+ADB shell commands, and sensitive data in notifications.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ except ImportError:
 
 
 class GuardrailEngine:
-    """Motor de evaluación de políticas y sanitización para Android-MCP."""
+    """Security policy evaluation and sanitization engine for Android-MCP."""
 
     def __init__(self, guardrails_dir: Optional[str] = None):
         if guardrails_dir is None:
@@ -34,7 +34,7 @@ class GuardrailEngine:
         self.output_rules = self._load_rules(self.base_dir / "output-guards.yaml")
 
     def _load_rules(self, filepath: Path) -> List[Dict[str, Any]]:
-        """Carga reglas desde archivo YAML con fallback incorporado."""
+        """Loads policy rules from YAML file with self-contained fallback."""
         if not filepath.exists():
             return []
 
@@ -44,9 +44,9 @@ class GuardrailEngine:
                     data = yaml.safe_load(f)
                     return data.get("rules", []) if isinstance(data, dict) else []
             except Exception as e:
-                print(f"[Aviso] Error al parsear {filepath.name} con PyYAML: {e}", file=sys.stderr)
+                print(f"[Warning] Failed parsing {filepath.name} with PyYAML: {e}", file=sys.stderr)
 
-        # Fallback sin PyYAML: parseo liviano de claves clave
+        # Built-in lightweight fallback parser without PyYAML
         rules: List[Dict[str, Any]] = []
         try:
             with open(filepath, "r", encoding="utf-8") as f:
@@ -71,14 +71,14 @@ class GuardrailEngine:
                         rule["patterns"].append(pat)
                 rules.append(rule)
         except Exception as err:
-            print(f"[Aviso] Error en fallback de {filepath.name}: {err}", file=sys.stderr)
+            print(f"[Warning] Fallback error for {filepath.name}: {err}", file=sys.stderr)
 
         return rules
 
     def validate_input(self, text: str) -> Tuple[bool, str, List[Dict[str, Any]]]:
         """
-        Evalúa texto de entrada contra inyecciones y secretos.
-        Retorna: (is_allowed, processed_text, violations)
+        Evaluates input text against injection patterns and leaked secrets.
+        Returns: (is_allowed, processed_text, violations)
         """
         violations: List[Dict[str, Any]] = []
         processed = text
@@ -103,16 +103,16 @@ class GuardrailEngine:
                     })
 
                     if action == "block":
-                        return False, f"Entrada bloqueada por violación de seguridad: {rule.get('id')}", violations
+                        return False, f"Input blocked due to security violation: {rule.get('id')}", violations
                     elif action == "mask":
-                        processed = re.sub(pattern, "[CONFIDENCIAL-ENMASCARADO]", processed)
+                        processed = re.sub(pattern, "[CONFIDENTIAL-MASKED]", processed)
 
         return True, processed, violations
 
     def validate_output(self, text: str, is_json_required: bool = False) -> Tuple[bool, str, List[Dict[str, Any]]]:
         """
-        Evalúa texto o datos salientes para evitar fuga de secretos o validar JSON.
-        Retorna: (is_valid, sanitized_text, violations)
+        Evaluates output text to prevent secret leakage or validate JSON schema.
+        Returns: (is_valid, sanitized_text, violations)
         """
         violations: List[Dict[str, Any]] = []
         sanitized = text
@@ -132,7 +132,7 @@ class GuardrailEngine:
                     violations.append({
                         "rule_id": rule_id,
                         "severity": rule.get("severity", "high"),
-                        "description": f"Fallo al validar JSON: {err}",
+                        "description": f"Failed JSON validation: {err}",
                     })
                     return False, sanitized, violations
 
@@ -152,32 +152,31 @@ class GuardrailEngine:
                         "matches_count": len(matches),
                     })
                     if action in ("redact", "mask"):
-                        sanitized = re.sub(pattern, "[SECRETO-REDACTADO]", sanitized)
+                        sanitized = re.sub(pattern, "[SECRET-REDACTED]", sanitized)
 
         return True, sanitized, violations
 
     def validate_apk_source(self, source: str) -> Tuple[bool, str]:
         """
-        Valida que una fuente de APK (archivo local o URL) no sea un vector SSRF
-        ni apunte a interfaces de loopback o endpoints de metadatos de nube.
+        Validates APK source (local path or remote URL) against SSRF vectors,
+        loopback addresses, and unauthorized cloud metadata endpoints.
         """
         src = source.strip()
         if not src:
-            return False, "Ruta o URL de APK vacía."
+            return False, "APK source path or URL is empty."
 
-        # Rutas locales
+        # Local file paths
         if not src.startswith(("http://", "https://")):
-            # Bloquea path traversal no seguro hacia archivos del sistema
             normalized = Path(src).as_posix()
             if "/etc/" in normalized or "windows/system32" in normalized.lower():
-                return False, f"Acceso denegado a ruta de sistema: {source}"
-            return True, "Ruta local aceptada."
+                return False, f"Access denied to system directory: {source}"
+            return True, "Local path accepted."
 
-        # Validación de URLs remotas (Anti-SSRF)
+        # Remote URL validation (Anti-SSRF)
         parsed = urlparse(src)
         hostname = (parsed.hostname or "").lower()
 
-        # Bloquear IPs de metadatos de nube y loopback
+        # Cloud metadata and loopback targets
         blocked_hosts = {
             "169.254.169.254",
             "metadata.google.internal",
@@ -189,36 +188,36 @@ class GuardrailEngine:
         }
 
         if hostname in blocked_hosts or hostname.endswith(".internal"):
-            return False, f"Descarga bloqueada por política anti-SSRF: {hostname} está restringido."
+            return False, f"Download blocked by anti-SSRF policy: {hostname} is restricted."
 
-        # Bloquear redes privadas RFC 1918 salvo configuración explícita
+        # RFC 1918 private subnets
         if re.match(r"^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$", hostname) or \
            re.match(r"^192\.168\.\d{1,3}\.\d{1,3}$", hostname) or \
            re.match(r"^172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}$", hostname):
-            return False, f"Descarga bloqueada por política anti-SSRF: Red privada restringida ({hostname})."
+            return False, f"Download blocked by anti-SSRF policy: Private network restricted ({hostname})."
 
-        return True, "URL de APK verificada y segura."
+        return True, "APK URL verified and safe."
 
     def sanitize_notification(self, notif: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Sanitiza datos sensibles en un diccionario de notificación, enmascarando
-        números de tarjeta o cuenta y conservando el código OTP.
+        Sanitizes sensitive information in a notification record, masking
+        credit card and email identifiers while preserving OTP verification codes.
         """
         cleaned = dict(notif)
         for field in ("title", "text", "ticker"):
             if field in cleaned and isinstance(cleaned[field], str):
                 val = cleaned[field]
-                # Enmascarar números de tarjeta
-                val = re.sub(r"\b(?:\d{4}[ -]?){3}\d{4}\b", "[TARJETA-ENMASCARADA]", val)
-                # Enmascarar emails
-                val = re.sub(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}", "[EMAIL-ENMASCARADO]", val)
+                # Mask credit card numbers
+                val = re.sub(r"\b(?:\d{4}[ -]?){3}\d{4}\b", "[CARD-MASKED]", val)
+                # Mask email addresses
+                val = re.sub(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}", "[EMAIL-MASKED]", val)
                 cleaned[field] = val
         return cleaned
 
 
 def main():
     if len(sys.argv) < 3:
-        print("Uso: python guardrails/engine.py [check-input|check-output|check-apk] <texto_o_url>")
+        print("Usage: python guardrails/engine.py [check-input|check-output|check-apk] <text_or_url>")
         sys.exit(1)
 
     cmd = sys.argv[1]
@@ -227,17 +226,17 @@ def main():
 
     if cmd == "check-input":
         allowed, res, viols = engine.validate_input(arg)
-        print(f"Permitido: {allowed}")
-        print(f"Resultado: {res}")
+        print(f"Allowed: {allowed}")
+        print(f"Result: {res}")
         if viols:
-            print(f"Violaciones ({len(viols)}): {json.dumps(viols, indent=2)}")
+            print(f"Violations ({len(viols)}): {json.dumps(viols, indent=2)}")
     elif cmd == "check-output":
         valid, res, viols = engine.validate_output(arg)
-        print(f"Válido: {valid}")
-        print(f"Sanitizado: {res}")
+        print(f"Valid: {valid}")
+        print(f"Sanitized: {res}")
     elif cmd == "check-apk":
         allowed, reason = engine.validate_apk_source(arg)
-        print(f"Seguro: {allowed} ({reason})")
+        print(f"Safe: {allowed} ({reason})")
 
 
 if __name__ == "__main__":

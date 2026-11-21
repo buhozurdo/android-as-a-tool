@@ -1,16 +1,16 @@
-# Reglas de Cursor IDE para Android-MCP (android-as-a-tool)
+# Cursor IDE Rules for Android-MCP (android-as-a-tool)
 
-# 1. Fuente de Verdad
-Consulta obligatoria antes de modificar código o arquitectura:
-- AGENTS.md: Directivas de calidad, protocolo en dos fases (Gate 1 "Óptimo y Aceptable", Gate 2 "Bien Hecho") y seguridad.
-- RELEASE.md: Estrategia de ramificación y registro de tags.
+# 1. Single Source of Truth
+Mandatory review before modifying code or architecture:
+- AGENTS.md: Quality directives, two-phase protocol (Gate 1 "Optimal & Acceptable", Gate 2 "Well-Crafted"), and security rules.
+- RELEASE.md: Branching strategy, release checklist, and tag registry.
 
-# 2. Seguridad en Android & ADB
-- Nunca expongas el puerto ADB 5555 a redes públicas.
-- Valida fuentes en install_apk contra ataques SSRF (prohibido acceder a 169.254.169.254 o IPs privadas no autorizadas).
-- Aplica sanitización de PII al leer notificaciones (guardrails/input-guards.yaml).
-- No uses `except Exception: pass` silencioso; captura excepciones específicas con mensajes claros.
+# 2. Android & ADB Security
+- Never expose ADB port 5555 to public interfaces.
+- Validate sources in install_apk against SSRF attacks (prohibit access to 169.254.169.254 or unauthorized private networks).
+- Enforce PII sanitization when reading notifications (guardrails/input-guards.yaml).
+- Prohibit bare `except Exception: pass` suppression; handle specific exceptions defensively.
 
-# 3. Eficiencia de Tokens en LLM
-- Prioriza UIParser para obtener elementos interactivos con centroides (cx, cy) sobre capturas de pantalla pesadas.
-- Mantén la suite de pruebas unitarias (`python -m pytest`) y evals siempre al 100% de aprobación.
+# 3. LLM Token Efficiency
+- Prioritize UIParser to retrieve compact interactive elements with (cx, cy) centroids over heavy screenshots.
+- Maintain test suite (`python -m pytest`) and evaluation benchmarks at 100% pass rate.

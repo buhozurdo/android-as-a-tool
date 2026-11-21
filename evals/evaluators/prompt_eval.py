@@ -1,5 +1,5 @@
 """
-Evaluador modular para pruebas individuales y aserciones de prompts en Android-MCP.
+Modular evaluator for individual prompt assertions and security checks in Android-MCP.
 """
 
 from __future__ import annotations
@@ -9,7 +9,7 @@ from guardrails.engine import GuardrailEngine
 
 
 class PromptEvaluator:
-    """Evaluador individual de prompts y seguridad para herramientas de Android."""
+    """Individual prompt and security evaluator for Android agent tools."""
 
     def __init__(self):
         self.engine = GuardrailEngine()

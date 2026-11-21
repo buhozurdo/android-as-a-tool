@@ -1,5 +1,5 @@
 """
-Android Doctor: Diagnóstico de entorno y salud del stack Android-MCP.
+Android Doctor: In-process environment and health diagnostics for Android-MCP.
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ def run_diagnostics() -> Dict[str, Any]:
         "overall_status": "READY",
     }
 
-    # Probar cliente ADB
+    # Test ADB Client
     if HAS_ADB_CLIENT:
         adb = ADBClient()
         report["device_mode"] = "mock_simulation" if adb.mock_mode else "live_adb"
@@ -54,13 +54,13 @@ def run_diagnostics() -> Dict[str, Any]:
         apps = adb.list_apps(third_party_only=False)
         report["installed_apps_count"] = len(apps)
 
-    # Probar Guardrails
+    # Test Guardrails
     if HAS_GUARDRAILS:
         engine = GuardrailEngine()
         report["guardrails_loaded"] = True
         report["guardrails_rules_count"] = len(engine.input_rules) + len(engine.output_rules)
 
-    # Comprobar dataset de evals
+    # Check Evals dataset
     evals_file = ROOT_DIR / "evals" / "datasets" / "android-eval-suite.json"
     report["evals_dataset_ready"] = evals_file.exists()
 
@@ -79,13 +79,13 @@ def main():
     print("  🩺 ANDROID-MCP ENVIRONMENT DOCTOR")
     print("=" * 55)
     print(f"Python:              {diag['python_version']} ({diag['platform']})")
-    print(f"Binario ADB:         {'✅ ' + diag['adb_path'] if diag['adb_binary_found'] else '⚠️ No encontrado (Mock activo)'}")
-    print(f"Modo Dispositivo:    {'⚡ Simulación Mock (CI/Headless)' if diag['device_mode'] == 'mock_simulation' else '📱 ADB Activo'}")
-    print(f"Resolución Display:  {diag['resolution']}")
-    print(f"Apps Detectadas:     {diag['installed_apps_count']} paquetes")
-    print(f"Motor Guardrails:    {'✅ Operativo (' + str(diag['guardrails_rules_count']) + ' reglas)' if diag['guardrails_loaded'] else '❌ No cargado'}")
-    print(f"Suite de Evals:      {'✅ Lista' if diag['evals_dataset_ready'] else '❌ No encontrada'}")
-    print(f"Estado General:      ✅ {diag['overall_status']}")
+    print(f"ADB Binary:          {'✅ ' + diag['adb_path'] if diag['adb_binary_found'] else '⚠️ Not found (Mock mode active)'}")
+    print(f"Device Mode:         {'⚡ Mock Simulation (CI/Headless)' if diag['device_mode'] == 'mock_simulation' else '📱 Live ADB Target'}")
+    print(f"Display Resolution:  {diag['resolution']}")
+    print(f"Detected Apps:       {diag['installed_apps_count']} packages")
+    print(f"Guardrails Engine:   {'✅ Active (' + str(diag['guardrails_rules_count']) + ' rules)' if diag['guardrails_loaded'] else '❌ Not loaded'}")
+    print(f"Evals Suite:         {'✅ Ready' if diag['evals_dataset_ready'] else '❌ Missing'}")
+    print(f"Overall Health:      ✅ {diag['overall_status']}")
     print("=" * 55 + "\n")
 
 

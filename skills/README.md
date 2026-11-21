@@ -1,15 +1,15 @@
-# Skills de Agentes para Android-MCP
+# Agent Skills for Android-MCP
 
-Esta carpeta almacena habilidades (skills) modulares, empaquetadas y reutilizables que los agentes de IA y desarrolladores pueden invocar para resolver tareas de diagnóstico y auditoría de calidad.
+This directory stores modular, packaged, and reusable skills that AI agents and human developers can invoke for diagnostics and quality auditing.
 
 ---
 
-## 📂 Skills Disponibles
+## 📂 Available Skills
 
 1. **[`code-analyzer`](./code-analyzer/SKILL.md)**:
-   - **Comando**: `python skills/code-analyzer/scripts/analyze.py`
-   - Audita Quality Gates del protocolo `AGENTS.md` (Gate 1 "Óptimo y Aceptable" y Gate 2 "Bien Hecho"): escaneo de secretos, antipatrones de silenciamiento de errores y deuda técnica.
+   - **Command**: `python skills/code-analyzer/scripts/analyze.py`
+   - Audits `AGENTS.md` Quality Gates (Gate 1 "Optimal & Acceptable" and Gate 2 "Well-Crafted"): scans for leaked secrets, silent error suppression (`except Exception: pass`), and documented technical debt.
 
 2. **[`android-doctor`](./android-doctor/SKILL.md)**:
-   - **Comando**: `python skills/android-doctor/scripts/doctor.py`
-   - Diagnostica en segundos la salud del entorno: presencia de binario ADB, modo mock/live, resolución física de pantalla, carga de guardrails y datasets de evaluación.
+   - **Command**: `python skills/android-doctor/scripts/doctor.py`
+   - Diagnoses stack health in seconds: ADB binary presence, mock/live mode, display resolution, guardrails engine status, and eval suite readiness.

@@ -1,7 +1,7 @@
 """
-Runner automatizado para evaluar la suite de pruebas (Evals) de Android-MCP.
-Ejecuta validaciones de seguridad, fidelidad de centroides, extracción de OTPs
-y conformidad de esquemas JSON, generando reportes Markdown en analysis-reporte/.
+Automated benchmark evaluation runner for Android-MCP.
+Executes test assertions for security guardrails, centroid accuracy,
+OTP retention, and JSON schemas, generating Markdown reports in analysis-reporte/.
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ def run_evaluations(dataset_path: Path | None = None) -> Dict[str, Any]:
         dataset_path = ROOT_DIR / "evals" / "datasets" / "android-eval-suite.json"
 
     if not dataset_path.exists():
-        raise FileNotFoundError(f"Dataset de evaluación no encontrado en: {dataset_path}")
+        raise FileNotFoundError(f"Evaluation dataset not found at: {dataset_path}")
 
     with open(dataset_path, "r", encoding="utf-8") as f:
         suite = json.load(f)
@@ -64,9 +64,9 @@ def run_evaluations(dataset_path: Path | None = None) -> Dict[str, Any]:
                 if test.get("expected_status") == "block":
                     if safe:
                         is_passed = False
-                        notes.append(f"Se esperaba bloqueo anti-SSRF para {url}, pero fue permitida.")
+                        notes.append(f"Expected anti-SSRF block for {url}, but was allowed.")
                     else:
-                        notes.append(f"Bloqueo anti-SSRF exitoso: {reason}")
+                        notes.append(f"Anti-SSRF block succeeded: {reason}")
             elif "input" in test:
                 inp = test["input"]
                 allowed, processed, viols = engine.validate_input(inp)
@@ -74,15 +74,15 @@ def run_evaluations(dataset_path: Path | None = None) -> Dict[str, Any]:
                 if expected == "block":
                     if allowed:
                         is_passed = False
-                        notes.append("Se esperaba bloqueo por seguridad, pero la entrada fue permitida.")
+                        notes.append("Expected security block, but input was allowed.")
                     else:
-                        notes.append("Bloqueo de seguridad verificado correctamente.")
+                        notes.append("Security block verified successfully.")
                 elif expected == "mask":
-                    if "[CONFIDENCIAL-ENMASCARADO]" not in processed:
+                    if "[CONFIDENTIAL-MASKED]" not in processed:
                         is_passed = False
-                        notes.append("Se esperaba enmascaramiento de PII, pero no se halló la etiqueta.")
+                        notes.append("Expected PII masking tag [CONFIDENTIAL-MASKED], but not found.")
                     else:
-                        notes.append("Datos sensibles enmascarados correctamente.")
+                        notes.append("Sensitive data masked successfully.")
 
         elif category == "notification_otp_extraction" and engine:
             notif = test.get("notification", {})
@@ -92,15 +92,15 @@ def run_evaluations(dataset_path: Path | None = None) -> Dict[str, Any]:
 
             if expected_otp not in cleaned.get("text", ""):
                 is_passed = False
-                notes.append(f"El código OTP {expected_otp} no fue retenido tras la sanitización.")
+                notes.append(f"OTP code {expected_otp} was not retained after sanitization.")
             else:
-                notes.append(f"Código OTP {expected_otp} retenido con éxito.")
+                notes.append(f"OTP code {expected_otp} retained successfully.")
 
             if masked_contains and masked_contains not in cleaned.get("text", ""):
                 is_passed = False
-                notes.append(f"Se esperaba enmascaramiento conteniendo '{masked_contains}'.")
+                notes.append(f"Expected masking tag '{masked_contains}' not found in notification.")
             else:
-                notes.append("Datos sensibles de la notificación enmascarados.")
+                notes.append("Sensitive notification data masked.")
 
         elif category == "structured_output":
             response = test.get("mock_response", "")
@@ -109,27 +109,27 @@ def run_evaluations(dataset_path: Path | None = None) -> Dict[str, Any]:
                 for key in test.get("expected_keys", []):
                     if key not in parsed:
                         is_passed = False
-                        notes.append(f"Clave esperada faltante en JSON: '{key}'")
+                        notes.append(f"Expected key missing in JSON: '{key}'")
                 if is_passed:
-                    notes.append("Estructura JSON válida y todas las claves esperadas presentes.")
+                    notes.append("Valid JSON structure and all expected keys present.")
             except json.JSONDecodeError as err:
                 is_passed = False
-                notes.append(f"Error de sintaxis JSON: {err}")
+                notes.append(f"JSON syntax error: {err}")
 
         elif category == "ui_compression_fidelity" and HAS_UI_PARSER:
             bounds_str = test.get("bounds", "")
             bounds = UIParser.parse_bounds(bounds_str)
             if not bounds:
                 is_passed = False
-                notes.append(f"Fallo al parsear límites de bounds: {bounds_str}")
+                notes.append(f"Failed to parse bounds string: {bounds_str}")
             else:
                 center = UIParser.compute_center(bounds)
                 expected = tuple(test.get("expected_center", []))
                 if center != expected:
                     is_passed = False
-                    notes.append(f"Centroide calculado {center} difiere del esperado {expected}.")
+                    notes.append(f"Calculated centroid {center} differs from expected {expected}.")
                 else:
-                    notes.append(f"Cálculo de centroide exacto verificado: {center}.")
+                    notes.append(f"Exact centroid calculation verified: {center}.")
 
         if is_passed:
             results["passed"] += 1
@@ -154,17 +154,17 @@ def generate_markdown_report(results: Dict[str, Any]) -> str:
     rate = (passed / total * 100.0) if total > 0 else 0.0
 
     md = [
-        "# Reporte de Evaluación de Agentes y Seguridad — Android-MCP",
+        "# AI Agent & Security Evaluation Report — Android-MCP",
         "",
-        f"- **Fecha y Hora**: `{results['timestamp']}`",
-        f"- **Total de Evaluaciones**: `{total}`",
-        f"- **Superadas (PASS)**: `{passed}`",
-        f"- **Fallidas (FAIL)**: `{failed}`",
-        f"- **Tasa de Éxito**: **`{rate:.1f}%`**",
+        f"- **Timestamp**: `{results['timestamp']}`",
+        f"- **Total Evaluations**: `{total}`",
+        f"- **Passed**: `{passed}`",
+        f"- **Failed**: `{failed}`",
+        f"- **Success Rate**: **`{rate:.1f}%`**",
         "",
-        "## Resumen por Caso de Prueba",
+        "## Test Cases Summary",
         "",
-        "| ID | Nombre | Categoría | Estado | Observaciones |",
+        "| ID | Name | Category | Status | Notes |",
         "| :--- | :--- | :--- | :---: | :--- |",
     ]
 
@@ -174,7 +174,7 @@ def generate_markdown_report(results: Dict[str, Any]) -> str:
 
     md.append("")
     md.append("---")
-    md.append("*Generado automáticamente por el Runner de Evals de Android-MCP.*")
+    md.append("*Generated automatically by Android-MCP Evals Runner.*")
     return "\n".join(md)
 
 
@@ -183,19 +183,19 @@ def main():
     results = run_evaluations()
 
     print("\n" + "=" * 60)
-    print("  SUITE DE EVALUACIONES: ANDROID-MCP")
+    print("  EVALUATION SUITE: ANDROID-MCP")
     print("=" * 60)
-    print(f"Total pruebas: {results['total_tests']}")
-    print(f"Aprobadas:     {results['passed']}")
-    print(f"Fallidas:      {results['failed']}")
+    print(f"Total Tests:   {results['total_tests']}")
+    print(f"Passed:        {results['passed']}")
+    print(f"Failed:        {results['failed']}")
     success_rate = (results['passed'] / results['total_tests']) * 100
-    print(f"Tasa de éxito: {success_rate:.1f}%\n")
+    print(f"Success Rate:  {success_rate:.1f}%\n")
 
     for case in results["cases"]:
         status_icon = "✅" if case["status"] == "PASS" else "❌"
         print(f"[{status_icon}] {case['id']} - {case['name']}: {case['status']}")
         if case["notes"]:
-            print(f"    Nota: {case['notes']}")
+            print(f"    Notes: {case['notes']}")
 
     if write_report:
         report_dir = ROOT_DIR / "analysis-reporte"
@@ -205,7 +205,7 @@ def main():
         report_md = generate_markdown_report(results)
         with open(report_file, "w", encoding="utf-8") as f:
             f.write(report_md)
-        print(f"\n📄 Reporte Markdown guardado en: {report_file}")
+        print(f"\n📄 Markdown report saved to: {report_file}")
 
     if results["failed"] > 0:
         sys.exit(1)
