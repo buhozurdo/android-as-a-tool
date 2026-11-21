@@ -1,0 +1,27 @@
+version: "1.0"
+description: "Reglas de validación y sanitización para salidas generadas por herramientas MCP y el dispositivo Android"
+
+rules:
+  - id: "leak-prevention"
+    description: "Detecta y redacta secretos y credenciales antes de retornar datos al LLM"
+    action: "redact"
+    severity: "critical"
+    patterns:
+      - "(?i)sk-[a-zA-Z0-9]{20,}"
+      - "(?i)ghp_[a-zA-Z0-9]{36}"
+      - "(?i)AKIA[0-9A-Z]{16}"
+      - "(?i)AIza[0-9A-Za-z-_]{35}"
+      - "(?i)bearer\\s+[a-zA-Z0-9_\\-\\.]{20,}"
+      - "(?i)(api[_-]?key|secret|password|token)\\s*[:=]\\s*['\"][^'\"]+['\"]"
+
+  - id: "json-structure-check"
+    description: "Valida integridad sintáctica de la salida JSON de herramientas como get_screen_elements"
+    action: "validate_json"
+    severity: "high"
+
+  - id: "notification-pii-scrub"
+    description: "Enmascara números de cuenta bancaria o saldos personales reteniendo el código de verificación OTP"
+    action: "mask"
+    severity: "medium"
+    patterns:
+      - "(?i)(cuenta|account|tarjeta|card|clabe)\\s*#?\\s*\\d{6,16}"

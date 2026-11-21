@@ -1,0 +1,7 @@
+# Reglas de Windsurf (Cascade) para Android-MCP (android-as-a-tool)
+
+- Respeta las directivas establecidas en AGENTS.md y RELEASE.md.
+- Sigue el protocolo de calidad en dos fases: primero asegura un estado 'Óptimo y Aceptable' (Gate 1) y luego endurece a 'Bien Hecho' (Gate 2).
+- Toda herramienta MCP debe ser compatible tanto con dispositivos reales como con simulación (mock_mode).
+- Ejecuta `python -m pytest` antes de concluir cualquier tarea.
+- Sanitiza PII en notificaciones y valida fuentes APK contra SSRF.

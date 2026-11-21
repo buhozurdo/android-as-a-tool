@@ -1,2 +1,0 @@
-[console_scripts]
-android-mcp = android_mcp.server:main

@@ -1,0 +1,54 @@
+version: "1.0"
+description: "Reglas de validación y sanitización para entradas del usuario y llamadas a herramientas en Android-MCP"
+
+rules:
+  - id: "prompt-injection-jailbreak"
+    description: "Detecta patrones comunes de jailbreak y manipulación de directivas del sistema"
+    action: "block"
+    severity: "high"
+    patterns:
+      - "(?i)ignore\\s+(all\\s+)?(previous|prior|above)\\s+instructions"
+      - "(?i)disregard\\s+(all\\s+)?(previous|prior|system)\\s+prompts?"
+      - "(?i)you\\s+are\\s+now\\s+in\\s+(developer|unrestricted|god|dan)\\s+mode"
+      - "(?i)forget\\s+(all\\s+)?your\\s+rules"
+      - "(?i)reveal\\s+(your\\s+)?(system\\s+prompt|hidden\\s+instructions)"
+      - "(?i)act\\s+as\\s+(an?\\s+unfiltered|an?\\s+unrestricted)"
+
+  - id: "anti-ssrf-apk-url"
+    description: "Bloquea descargas de APK desde metadata de nube (169.254.169.254), loopback o direcciones locales no autorizadas"
+    action: "block"
+    severity: "critical"
+    patterns:
+      - "(?i)https?://(169\\.254\\.169\\.254|metadata\\.google\\.internal|localhost|127\\.0\\.0\\.1|0\\.0\\.0\\.0|::1)"
+      - "(?i)https?://(10\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}|192\\.168\\.\\d{1,3}\\.\\d{1,3}|172\\.(1[6-9]|2[0-9]|3[0-1])\\.\\d{1,3}\\.\\d{1,3})"
+      - "(?i)file:///"
+
+  - id: "adb-shell-injection"
+    description: "Detecta intentos de inyección de comandos en shell y cadenas maliciosas en type_text"
+    action: "block"
+    severity: "high"
+    patterns:
+      - "(?i)(;\\s*rm\\s+-rf|&&\\s*rm\\s+-rf|\\|\\|\\s*rm\\s+-rf)"
+      - "(?i)(;\\s*reboot|&&\\s*reboot|;\\s*sh\\b|&&\\s*sh\\b|\\bchmod\\s+777)"
+      - "(`[^`]+`|\\$\\([^\\)]+\\))"
+
+  - id: "detect-mask-secrets"
+    description: "Detecta y enmascara claves de API, tokens y credenciales en parámetros de entrada"
+    action: "mask"
+    severity: "critical"
+    patterns:
+      - "(?i)sk-[a-zA-Z0-9]{20,}"
+      - "(?i)ghp_[a-zA-Z0-9]{36}"
+      - "(?i)AKIA[0-9A-Z]{16}"
+      - "(?i)AIza[0-9A-Za-z-_]{35}"
+      - "(?i)bearer\\s+[a-zA-Z0-9_\\-\\.]{20,}"
+
+  - id: "detect-mask-pii"
+    description: "Detecta y enmascara PII (tarjetas de crédito, correos) en mensajes y notificaciones"
+    action: "mask"
+    severity: "medium"
+    patterns:
+      # Tarjetas de crédito aproximadas (13-16 dígitos agrupados)
+      - "\\b(?:\\d{4}[ -]?){3}\\d{4}\\b"
+      # Correo electrónico
+      - "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}"

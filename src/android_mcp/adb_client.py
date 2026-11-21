@@ -16,6 +16,12 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+try:
+    from guardrails.engine import GuardrailEngine
+    _GUARDRAILS_ENGINE: Optional[GuardrailEngine] = GuardrailEngine()
+except Exception:
+    _GUARDRAILS_ENGINE = None
+
 KEY_MAPPINGS: Dict[str, int] = {
     "HOME": 3,
     "BACK": 4,
@@ -167,6 +173,11 @@ class ADBClient:
 
     def install_apk(self, source: str) -> str:
         """Install .apk from local path or URL."""
+        if _GUARDRAILS_ENGINE:
+            is_safe, reason = _GUARDRAILS_ENGINE.validate_apk_source(source)
+            if not is_safe:
+                return f"Security Error: {reason}"
+
         self.recorded_actions.append({"action": "install_apk", "source": source})
         if self.mock_mode:
             pkg_name = Path(source).stem.replace("-", ".").lower()
@@ -247,6 +258,12 @@ class ADBClient:
 
     def type_text(self, text: str) -> str:
         """Type text into focused input element."""
+        if _GUARDRAILS_ENGINE:
+            allowed, sanitized, _ = _GUARDRAILS_ENGINE.validate_input(text)
+            if not allowed:
+                return f"Security Error: {sanitized}"
+            text = sanitized
+
         self.recorded_actions.append({"action": "type_text", "text": text})
         if self.mock_mode:
             return f"Typed text: '{text}'"
@@ -310,7 +327,7 @@ class ADBClient:
             res = subprocess.run(full_cmd, capture_output=True, timeout=self.timeout)
             if res.returncode == 0 and res.stdout:
                 return base64.b64encode(res.stdout).decode("utf-8")
-        except Exception:
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError, OSError):
             pass
         return ""
 
@@ -356,5 +373,8 @@ class ADBClient:
 
         if current and ("title" in current or "text" in current or "ticker" in current):
             notifications.append(current)
+
+        if _GUARDRAILS_ENGINE:
+            notifications = [_GUARDRAILS_ENGINE.sanitize_notification(n) for n in notifications]
 
         return notifications
