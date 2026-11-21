@@ -35,7 +35,7 @@ sudo modprobe ashmem_linux
 > 
 Inicio Rápido
  * Clona el repositorio:
-   git clone [https://github.com/tu-usuario/android-mcp.git](https://github.com/tu-usuario/android-mcp.git)
+   git clone [https://github.com/buhozurdo/android-as-a-tool.git](https://github.com/buhozurdo/android-as-a-tool.git)
 cd android-mcp
 
  * Configura las variables de entorno (opcional):
@@ -50,6 +50,7 @@ cd android-mcp
    El servidor MCP quedará disponible en http://localhost:8000/mcp.
 Herramientas (Tools) Expuestas por el MCP
 Gestión de Aplicaciones
+
 | Tool | Parámetros | Descripción |
 |---|---|---|
 | install_apk | source: str | Instala un .apk desde una URL o ruta en el volumen /apks. |
