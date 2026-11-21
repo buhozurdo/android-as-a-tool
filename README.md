@@ -33,7 +33,9 @@ sudo modprobe ashmem_linux
 
 > Nota para macOS / Windows: Docker en estos sistemas no expone los módulos del kernel necesarios para redroid. En ese caso, levanta un emulador nativo en tu host y ejecuta únicamente el contenedor del servidor MCP apuntando a host.docker.internal:5555.
 > 
-Inicio Rápido
+
+## Inicio Rápido
+
  * Clona el repositorio:
    git clone [https://github.com/buhozurdo/android-as-a-tool.git](https://github.com/buhozurdo/android-as-a-tool.git)
 cd android-mcp
@@ -48,8 +50,10 @@ cd android-mcp
    docker compose logs -f mcp-server
 
    El servidor MCP quedará disponible en http://localhost:8000/mcp.
-Herramientas (Tools) Expuestas por el MCP
-Gestión de Aplicaciones
+
+## Herramientas (Tools) Expuestas por el MCP
+
+### Gestión de Aplicaciones
 
 | Tool | Parámetros | Descripción |
 |---|---|---|
@@ -57,7 +61,9 @@ Gestión de Aplicaciones
 | list_apps | third_party_only: bool | Lista los paquetes instalados en el dispositivo. |
 | launch_app | package: str | Abre una aplicación directamente por su nombre de paquete. |
 | uninstall_app | package: str | Desinstala una aplicación del dispositivo. |
-Interacción UI
+
+## Interacción UI
+
 | Tool | Parámetros | Descripción |
 |---|---|---|
 | get_screen_elements | clickable_only: bool | Devuelve el árbol UI filtrado en JSON con texto, ID y coordenadas (cx, cy). |
@@ -66,13 +72,19 @@ Interacción UI
 | type_text | text: str | Escribe texto en el campo activo. |
 | swipe | direction: str | Desliza la pantalla (up, down, left, right). |
 | press_key | key: str | Envía eventos de sistema (HOME, BACK, ENTER, APP_SWITCH). |
-Contexto y Visión
+
+## Contexto y Visión
+
 | Tool | Parámetros | Descripción |
 |---|---|---|
 | take_screenshot | — | Captura la pantalla actual en formato base64 (ideal para WebViews o contenido visual). |
 | get_notifications | — | Lee las notificaciones activas del sistema (útil para códigos OTP/2FA). |
-Conectar un Cliente MCP
+
+## Conectar un Cliente MCP
+
 Agrega el servidor remoto a la configuración de tu cliente MCP (por ejemplo, Claude Desktop, Cursor o tu propio orquestador):
+
+```json
 {
   "mcpServers": {
     "android-device": {
@@ -80,13 +92,18 @@ Agrega el servidor remoto a la configuración de tu cliente MCP (por ejemplo, Cl
     }
   }
 }
+```
 
-Instalación de Apps en el Dispositivo
+## Instalación de Apps en el Dispositivo
+
 Tienes tres formas de darle acceso a aplicaciones al agente:
  * Volumen local de APKs: Coloca archivos .apk en la carpeta ./apks (montada en /apks dentro del contenedor) y pide al LLM que ejecute install_apk.
  * Aurora Store (Sin cuenta de Google): Instala Aurora Store vía APK para que el LLM pueda buscar y descargar apps directamente desde el catálogo de Play Store de forma anónima.
  * Google Play Store (GApps): Cambia la imagen de redroid en docker-compose.yml por una compilación con GApps/MindTheGapps e inicia sesión una sola vez en el volumen persistente /data.
-Estructura del Proyecto
+
+## Estructura del Proyecto
+
+```text
 android-mcp/
 ├── docker-compose.yml      # Orquestación de redroid + servidor MCP
 ├── .env.example            # Variables de entorno (resolución, DPI, puerto MCP)
@@ -97,12 +114,15 @@ android-mcp/
     ├── server.py           # Definición de tools MCP
     ├── adb_client.py       # Wrapper de comandos ADB
     └── ui_parser.py        # Compresor de XML (uiautomator) a JSON ligero
+```
 
-Seguridad y Aislamiento
+## Seguridad y Aislamiento
+
  * No exponer el puerto ADB (5555) al host público: Mantén la comunicación entre mcp-server y redroid estrictamente dentro de la red interna de Docker.
  * Autenticación en MCP: Si despliegas este stack fuera de localhost, coloca un reverse proxy (Nginx, Traefik o Cloudflare Tunnel) con autenticación por Bearer Token o Access.
  * Cuentas de prueba: Utiliza cuentas desechables o de sandbox dentro del dispositivo virtual; nunca credenciales personales críticas.
-Licencia
+
+## Licencia
 MIT
 
 <FollowUp label="¿Quieres que genere ahora el docker-compose.yml y el código base de mcp-server?" query="Genera el docker-compose.yml, el Dockerfile y el código en Python (server.py, adb_client.py y ui_parser.py) siguiendo exactamente la estructura del README."/>
