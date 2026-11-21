@@ -45,7 +45,8 @@ We adhere to [Semantic Versioning 2.0.0](https://semver.org/) and PEP 440:
 
 | Git Tag | Release Date | Target Commit | Channel | Release Summary |
 | :--- | :---: | :---: | :---: | :--- |
-| [`v0.2.0`](#v020-full-mcp-server-adb-client-ui-token-compressor--12-tool-suite) | 2026-11-21 | `c5504a9` | **GA** | Full MCP Server, ADB Client, UI Token Compressor & 12-Tool Suite |
+| [`v0.2.1`](#v021-enterprise-guardrails-engine-automated-evals-agent-skills--anti-ssrf) | 2026-11-21 | `HEAD` | **Patch** | Enterprise Guardrails Engine, Automated Evals, Agent Skills & Anti-SSRF |
+| [`v0.2.0`](#v020-core-mcp-server-native-adb-bridge-ui-token-compressor--test-suite) | 2026-11-21 | `c5504a9` | **GA** | Core MCP Server, Native ADB Bridge, UI Token Compressor & Test Suite |
 | [`v0.1.1`](#v011-repository-url-alignment--documentation-formatting) | 2026-11-20 | `b076bb9` | **Patch** | Repository URL Alignment & Documentation Formatting |
 | [`v0.1.0`](#v010-foundation--architecture-specification) | 2026-11-20 | `e1f2383` | **GA** | Foundation & Architecture Specification |
 
@@ -78,14 +79,14 @@ We adhere to [Semantic Versioning 2.0.0](https://semver.org/) and PEP 440:
    git tag -a vX.Y.0-beta -m "Release vX.Y.0-beta: Stabilization & Hardening"
    ```
 
-### 3. Publishing a GA Production Release (`vX.Y.0`)
+### 3. Publishing a GA Production Release (`vX.Y.0` / `vX.Y.Z`)
 1. Finalize documentation, `README.md`, and `CHANGELOG.md` (**Mandatory:** generate a **PR Title** and **PR Description** block and record it directly under the version header).
-2. Update versions to `X.Y.0` in `pyproject.toml` and `src/android_mcp/__init__.py`.
+2. Update versions to `X.Y.Z` in `pyproject.toml` and `src/android_mcp/__init__.py`.
 3. Merge `release/vX.Y.0` into `main`:
    ```bash
    git checkout main
    git merge --no-ff release/vX.Y.0 -m "Merge branch 'release/vX.Y.0' into main"
-   git tag -a vX.Y.0 -m "Release vX.Y.0: <Title>"
+   git tag -a vX.Y.Z -m "Release vX.Y.Z: <Title>"
    ```
 4. Merge back into `dev` to propagate any final fixes:
    ```bash
@@ -102,11 +103,67 @@ We adhere to [Semantic Versioning 2.0.0](https://semver.org/) and PEP 440:
 
 ## 🚀 Release History & Release Notes
 
-## v0.2.0: Full MCP Server, ADB Client, UI Token Compressor & 12-Tool Suite
+## v0.2.1: Enterprise Guardrails Engine, Automated Evals, Agent Skills & Anti-SSRF
+
+> 🏷️ **Git Tag:** `v0.2.1` | 📅 **Release Date:** `2026-11-21` | 🔗 **Target Commit:** `HEAD` | 📦 **Release Channel:** `GA Patch`  
+> 🔀 **PR Title:** `feat: v0.2.1 - Enterprise Guardrails Engine, Automated Evals Suite, Agent Skills & Anti-SSRF Hardening`  
+> 📝 **PR Description:** Releases v0.2.1 establishing enterprise-grade security and testing layers for Android-MCP. Features a zero-dependency Guardrails Engine (anti-SSRF for APK downloads, ADB shell injection defense, notification PII masking with OTP preservation, and JSON structure verification), an automated Evals framework with 9 benchmark cases and Markdown reporting in `analysis-reporte/`, agent skills (`code-analyzer` Quality Gates, `android-doctor`), two-phase quality governance protocol (`AGENTS.md`), and test suite expansion to 23 tests (100% pass rate).
+
+The `v0.2.1` patch release hardens Android-MCP for production autonomy, integrating safety guardrails, automated evaluation benchmarks, and diagnostic skills directly into the ADB bridge and MCP tool lifecycle.
+
+---
+
+### 🛡️ Enterprise Security & Guardrails Engine (`guardrails/`):
+* **Anti-SSRF Protection for APK Sources:**
+  * Strict validation blocking cloud metadata endpoints (`169.254.169.254`, `metadata.google.internal`), loopback addresses (`127.0.0.1`, `localhost`), and private RFC 1918 subnets in `install_apk`.
+  * Allows safe public HTTPS downloads and sanitized local file volumes (`apks/`).
+* **ADB Shell Injection Defense:**
+  * Sanitization in `type_text` intercepting command chaining (`rm -rf`, `reboot`, subshells `$()`, backticks, pipes).
+* **Notification PII Sanitization with OTP Retention:**
+  * Enmascara números de cuenta bancaria, tarjetas de crédito y correos electrónicos en `get_notifications()` mientras preserva intactos los códigos de verificación OTP/2FA.
+* **JSON Structure Verification:**
+  * Chequeo sintáctico y de esquema en las respuestas estructuradas entregadas a los agentes.
+
+---
+
+### 🧪 Automated Evals Framework & Benchmarks (`evals/`):
+* **Benchmark Suite (`evals/datasets/android-eval-suite.json`):**
+  * 9 automated evaluation cases validating safety guardrails, OTP extraction fidelity, UI centroid precision, and JSON structural contracts.
+* **Automated Runner (`evals/evaluators/eval_runner.py`):**
+  * Interactive terminal execution and markdown report generation exported to `analysis-reporte/eval-report-*.md`.
+  * 100% pass rate (9/9 evaluation cases passing).
+
+---
+
+### 🛠️ Agent Skills Suite (`skills/`):
+* **`code-analyzer` Skill:**
+  * Static auditor evaluating Quality Gates (Gate 1 "Óptimo y Aceptable", Gate 2 "Bien Hecho").
+  * Enforces zero silent exception suppression (`except Exception: pass`), zero unresolved bugs, and clean typing.
+* **`android-doctor` Skill:**
+  * Rapid in-process health diagnostics for ADB binary presence, live/mock connection mode, display dimensions, guardrails readiness, and evals availability.
+
+---
+
+### 🏛️ Two-Phase Quality Governance & Hardening:
+* **Protocolo `AGENTS.md`**:
+  * Adopted standard two-phase workflow: Gate 1 ("Óptimo y Aceptable") and Gate 2 ("Bien Hecho").
+  * Integrated IDE rule connectors `.cursorrules` and `.windsurfrules`.
+* **Defensive Exception Handling:**
+  * Replaced bare `except Exception: pass` in `take_screenshot` with explicit `(subprocess.TimeoutExpired, subprocess.SubprocessError, OSError)` handling.
+
+---
+
+### 🧪 Test Suite Metrics:
+* **23 tests passing (100% pass rate, 0 failed, 0 skipped)** in ~1.09s.
+  * Added dedicated `tests/test_guardrails.py` covering anti-SSRF, injection defense, PII scrubbing, and JSON schema validation.
+
+---
+
+## v0.2.0: Core MCP Server, Native ADB Bridge, UI Token Compressor & Test Suite
 
 > 🏷️ **Git Tag:** `v0.2.0` | 📅 **Release Date:** `2026-11-21` | 🔗 **Target Commit:** `c5504a9` | 📦 **Release Channel:** `GA Production`  
 > 🔀 **PR Title:** `feat: v0.2.0 - Core MCP Server, Native ADB Bridge, UI Hierarchy Token Compressor & Test Suite`  
-> 📝 **PR Description:** Releases v0.2.0 introducing the complete Python implementation of Android-MCP. Features native ADB bridge execution with simulated mock fallback, token-efficient UIAutomator XML parsing with centroid calculation, 12 standardized MCP tools for LLM agent control, CLI launcher `android-mcp`, and 100% test suite verification.
+> 📝 **PR Description:** Releases v0.2.0 introducing the complete Python implementation of Android-MCP. Features native ADB bridge execution with simulated mock fallback, token-efficient UIAutomator XML parsing with centroid calculation, 12 standardized MCP tools for LLM agent control, CLI launcher `android-mcp`, and 100% test suite verification across 18 tests.
 
 The `v0.2.0` release establishes the full software layer of Android-MCP, turning any virtual or physical Android instance into a standard Model Context Protocol tool provider for autonomous agents (Claude Desktop, Cursor, LangChain, etc.).
 
