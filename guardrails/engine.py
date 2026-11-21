@@ -20,6 +20,24 @@ try:
 except ImportError:
     HAS_YAML = False
 
+# Module-level pre-compiled patterns and sets for maximum throughput
+BLOCKED_HOSTS = frozenset({
+    "169.254.169.254",
+    "metadata.google.internal",
+    "metadata.google.internal.",
+    "localhost",
+    "127.0.0.1",
+    "0.0.0.0",
+    "::1",
+})
+
+RE_RFC1918_10 = re.compile(r"^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$")
+RE_RFC1918_192 = re.compile(r"^192\.168\.\d{1,3}\.\d{1,3}$")
+RE_RFC1918_172 = re.compile(r"^172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}$")
+
+RE_CREDIT_CARD = re.compile(r"\b(?:\d{4}[ -]?){3}\d{4}\b")
+RE_EMAIL = re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")
+
 
 class GuardrailEngine:
     """Security policy evaluation and sanitization engine for Android-MCP."""
@@ -35,45 +53,54 @@ class GuardrailEngine:
 
     def _load_rules(self, filepath: Path) -> List[Dict[str, Any]]:
         """Loads policy rules from YAML file with self-contained fallback."""
-        if not filepath.exists():
-            return []
+        raw_rules: List[Dict[str, Any]] = []
+        if filepath.exists():
+            if HAS_YAML:
+                try:
+                    with open(filepath, "r", encoding="utf-8") as f:
+                        data = yaml.safe_load(f)
+                        raw_rules = data.get("rules", []) if isinstance(data, dict) else []
+                except Exception as e:
+                    print(f"[Warning] Failed parsing {filepath.name} with PyYAML: {e}", file=sys.stderr)
 
-        if HAS_YAML:
-            try:
-                with open(filepath, "r", encoding="utf-8") as f:
-                    data = yaml.safe_load(f)
-                    return data.get("rules", []) if isinstance(data, dict) else []
-            except Exception as e:
-                print(f"[Warning] Failed parsing {filepath.name} with PyYAML: {e}", file=sys.stderr)
+            if not raw_rules:
+                # Built-in lightweight fallback parser without PyYAML
+                try:
+                    with open(filepath, "r", encoding="utf-8") as f:
+                        content = f.read()
 
-        # Built-in lightweight fallback parser without PyYAML
-        rules: List[Dict[str, Any]] = []
-        try:
-            with open(filepath, "r", encoding="utf-8") as f:
-                content = f.read()
+                    rule_blocks = re.split(r"\n\s*-\s+id:\s*", content)
+                    for block in rule_blocks[1:]:
+                        lines = block.splitlines()
+                        rule_id = lines[0].strip().strip('"').strip("'")
+                        rule: Dict[str, Any] = {"id": rule_id, "patterns": []}
 
-            rule_blocks = re.split(r"\n\s*-\s+id:\s*", content)
-            for block in rule_blocks[1:]:
-                lines = block.splitlines()
-                rule_id = lines[0].strip().strip('"').strip("'")
-                rule: Dict[str, Any] = {"id": rule_id, "patterns": []}
+                        for line in lines[1:]:
+                            line_str = line.strip()
+                            if line_str.startswith("action:"):
+                                rule["action"] = line_str.replace("action:", "").strip().strip('"').strip("'")
+                            elif line_str.startswith("severity:"):
+                                rule["severity"] = line_str.replace("severity:", "").strip().strip('"').strip("'")
+                            elif line_str.startswith("description:"):
+                                rule["description"] = line_str.replace("description:", "").strip().strip('"').strip("'")
+                            elif line_str.startswith("- ") and "patterns:" not in line_str:
+                                pat = line_str[2:].strip().strip('"').strip("'")
+                                rule["patterns"].append(pat)
+                        raw_rules.append(rule)
+                except Exception as err:
+                    print(f"[Warning] Fallback error for {filepath.name}: {err}", file=sys.stderr)
 
-                for line in lines[1:]:
-                    line_str = line.strip()
-                    if line_str.startswith("action:"):
-                        rule["action"] = line_str.replace("action:", "").strip().strip('"').strip("'")
-                    elif line_str.startswith("severity:"):
-                        rule["severity"] = line_str.replace("severity:", "").strip().strip('"').strip("'")
-                    elif line_str.startswith("description:"):
-                        rule["description"] = line_str.replace("description:", "").strip().strip('"').strip("'")
-                    elif line_str.startswith("- ") and "patterns:" not in line_str:
-                        pat = line_str[2:].strip().strip('"').strip("'")
-                        rule["patterns"].append(pat)
-                rules.append(rule)
-        except Exception as err:
-            print(f"[Warning] Fallback error for {filepath.name}: {err}", file=sys.stderr)
+        # Pre-compile all regexes for high-throughput evaluation
+        for r in raw_rules:
+            compiled = []
+            for p in r.get("patterns", []):
+                try:
+                    compiled.append((p, re.compile(p)))
+                except re.error:
+                    pass
+            r["_compiled"] = compiled
 
-        return rules
+        return raw_rules
 
     def validate_input(self, text: str) -> Tuple[bool, str, List[Dict[str, Any]]]:
         """
@@ -85,14 +112,10 @@ class GuardrailEngine:
 
         for rule in self.input_rules:
             action = rule.get("action", "flag")
-            patterns = rule.get("patterns", [])
+            compiled_patterns = rule.get("_compiled", [])
 
-            for pattern in patterns:
-                try:
-                    matches = list(re.finditer(pattern, processed))
-                except re.error:
-                    continue
-
+            for pattern_str, regex in compiled_patterns:
+                matches = list(regex.finditer(processed))
                 if matches:
                     violations.append({
                         "rule_id": rule.get("id"),
@@ -105,7 +128,7 @@ class GuardrailEngine:
                     if action == "block":
                         return False, f"Input blocked due to security violation: {rule.get('id')}", violations
                     elif action == "mask":
-                        processed = re.sub(pattern, "[CONFIDENTIAL-MASKED]", processed)
+                        processed = regex.sub("[CONFIDENTIAL-MASKED]", processed)
 
         return True, processed, violations
 
@@ -136,13 +159,9 @@ class GuardrailEngine:
                     })
                     return False, sanitized, violations
 
-            patterns = rule.get("patterns", [])
-            for pattern in patterns:
-                try:
-                    matches = list(re.finditer(pattern, sanitized))
-                except re.error:
-                    continue
-
+            compiled_patterns = rule.get("_compiled", [])
+            for pattern_str, regex in compiled_patterns:
+                matches = list(regex.finditer(sanitized))
                 if matches:
                     violations.append({
                         "rule_id": rule_id,
@@ -152,7 +171,7 @@ class GuardrailEngine:
                         "matches_count": len(matches),
                     })
                     if action in ("redact", "mask"):
-                        sanitized = re.sub(pattern, "[SECRET-REDACTED]", sanitized)
+                        sanitized = regex.sub("[SECRET-REDACTED]", sanitized)
 
         return True, sanitized, violations
 
@@ -176,24 +195,11 @@ class GuardrailEngine:
         parsed = urlparse(src)
         hostname = (parsed.hostname or "").lower()
 
-        # Cloud metadata and loopback targets
-        blocked_hosts = {
-            "169.254.169.254",
-            "metadata.google.internal",
-            "metadata.google.internal.",
-            "localhost",
-            "127.0.0.1",
-            "0.0.0.0",
-            "::1",
-        }
-
-        if hostname in blocked_hosts or hostname.endswith(".internal"):
+        if hostname in BLOCKED_HOSTS or hostname.endswith(".internal"):
             return False, f"Download blocked by anti-SSRF policy: {hostname} is restricted."
 
         # RFC 1918 private subnets
-        if re.match(r"^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$", hostname) or \
-           re.match(r"^192\.168\.\d{1,3}\.\d{1,3}$", hostname) or \
-           re.match(r"^172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}$", hostname):
+        if RE_RFC1918_10.match(hostname) or RE_RFC1918_192.match(hostname) or RE_RFC1918_172.match(hostname):
             return False, f"Download blocked by anti-SSRF policy: Private network restricted ({hostname})."
 
         return True, "APK URL verified and safe."
@@ -207,10 +213,8 @@ class GuardrailEngine:
         for field in ("title", "text", "ticker"):
             if field in cleaned and isinstance(cleaned[field], str):
                 val = cleaned[field]
-                # Mask credit card numbers
-                val = re.sub(r"\b(?:\d{4}[ -]?){3}\d{4}\b", "[CARD-MASKED]", val)
-                # Mask email addresses
-                val = re.sub(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}", "[EMAIL-MASKED]", val)
+                val = RE_CREDIT_CARD.sub("[CARD-MASKED]", val)
+                val = RE_EMAIL.sub("[EMAIL-MASKED]", val)
                 cleaned[field] = val
         return cleaned
 
