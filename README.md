@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://github.com/buhozurdo/android-as-a-tool/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/CI-Passing-brightgreen?style=flat-square&logo=github-actions" alt="CI Status"></a>
-  <a href="https://github.com/buhozurdo/android-as-a-tool/releases"><img src="https://img.shields.io/badge/Release-v0.3.0-blue?style=flat-square&logo=git" alt="Release"></a>
+  <a href="https://github.com/buhozurdo/android-as-a-tool/releases"><img src="https://img.shields.io/badge/Release-v0.4.0-blue?style=flat-square&logo=git" alt="Release"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue?style=flat-square&logo=python" alt="Python Versions"></a>
   <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/Protocol-FastMCP%20Standard-purple?style=flat-square" alt="MCP Protocol"></a>
   <a href="https://github.com/buhozurdo/android-as-a-tool/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow?style=flat-square" alt="License"></a>

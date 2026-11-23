@@ -45,7 +45,8 @@ We adhere to [Semantic Versioning 2.0.0](https://semver.org/) and PEP 440:
 
 | Git Tag | Release Date | Target Commit | Channel | Release Summary |
 | :--- | :---: | :---: | :---: | :--- |
-| [`v0.3.0`](#v030-sla-performance-benchmark-optimizations-enterprise-guardrails--evals-framework) | 2026-11-21 | `HEAD` | **GA** | SLA Performance Benchmark Optimizations, Enterprise Guardrails & Evals Framework |
+| [`v0.4.0`](#v040-enterprise-grade-hardening-multi-architecture-docker-grid-cicd-matrix--agent-cookbooks) | 2026-11-23 | `HEAD` | **GA** | Enterprise-Grade Hardening, Multi-Architecture Docker Grid, CI/CD Matrix & Agent Cookbooks |
+| [`v0.3.0`](#v030-sla-performance-benchmark-optimizations-enterprise-guardrails--evals-framework) | 2026-11-21 | `58af992` | **GA** | SLA Performance Benchmark Optimizations, Enterprise Guardrails & Evals Framework |
 | [`v0.2.1`](#v021-enterprise-guardrails-engine-automated-evals-agent-skills--anti-ssrf) | 2026-11-21 | `dcc061b` | **Patch** | Enterprise Guardrails Engine, Automated Evals, Agent Skills & Anti-SSRF |
 | [`v0.2.0`](#v020-core-mcp-server-native-adb-bridge-ui-token-compressor--test-suite) | 2026-11-21 | `c5504a9` | **GA** | Core MCP Server, Native ADB Bridge, UI Token Compressor & Test Suite |
 | [`v0.1.1`](#v011-repository-url-alignment--documentation-formatting) | 2026-11-20 | `b076bb9` | **Patch** | Repository URL Alignment & Documentation Formatting |
@@ -103,6 +104,60 @@ We adhere to [Semantic Versioning 2.0.0](https://semver.org/) and PEP 440:
 ---
 
 ## 🚀 Release History & Release Notes
+
+## v0.4.0: Enterprise-Grade Hardening, Multi-Architecture Docker Grid, CI/CD Matrix & Agent Cookbooks
+
+> 🏷️ **Git Tag:** `v0.4.0` | 📅 **Release Date:** `2026-11-23` | 🔗 **Target Commit:** `HEAD` | 📦 **Release Channel:** `GA Production`  
+> 🔀 **PR Title:** `feat: v0.4.0 - Enterprise FAANG-Grade Hardening, Multi-Arch Docker Grid, CI/CD Matrix & Multi-Framework Agent Cookbooks`  
+> 📝 **PR Description:** Releases v0.4.0 elevating Android-MCP to enterprise production maturity for Tier-1 engineering teams (Google, Microsoft, Oracle, IBM, Netflix). Features a multi-stage unprivileged Dockerfile, dual-profile Docker Compose (ReDroid headless cloud grid & Budtmo visual noVNC on :6080), cross-platform GitHub Actions CI matrix (Python 3.10-3.14 on Ubuntu, macOS, Windows), Bandit SAST and GitHub CodeQL automated security pipelines, system architecture specification (ARCHITECTURE.md), open-source governance (CONTRIBUTING.md, CODE_OF_CONDUCT.md, SECURITY.md), developer tooling (Makefile, pre-commit), multi-framework agent cookbooks (Claude Desktop, Cursor, LangChain/LangGraph, Ollama local agent), and 15/15 SLA benchmarks 100% within window targets.
+
+The `v0.4.0` release establishes enterprise-grade engineering rigor, turnkey containerized deployments, and production governance across all layers of Android-MCP.
+
+---
+
+### 🐳 Turnkey Cloud & Container Infrastructure:
+* **Multi-Stage Production Dockerfile:**
+  * Build stage separation with unprivileged non-root execution (`mcpuser`, UID 10001) for strict Kubernetes and cloud pod security standards.
+  * Packaged with native ADB tools and ca-certificates in a minimal, lightweight footprint.
+* **Dual-Profile Docker Compose Grid:**
+  * **Headless Profile (`redroid`):** Ultra-fast, cloud-native AIC (Android In Cloud) container requiring ~500MB RAM and sub-second boot time.
+  * **Visual Profile (`budtmo`):** Full QEMU emulator with out-of-the-box browser-based noVNC visual inspection on port `:6080` for development and live agent prompt debugging.
+  * **Isolated Internal Bridge:** Strictly confines ADB port `5555` to localhost / internal network, enforcing Zero-Trust directives.
+
+---
+
+### 🧪 Cross-Platform CI/CD & Security Pipelines (`.github/workflows/`):
+* **Multi-Python Test Matrix (`ci.yml`):**
+  * Automated testing across Python `3.10`, `3.11`, `3.12`, `3.13`, and `3.14-dev` across `ubuntu-latest`, `windows-latest`, and `macos-latest`.
+  * Enforces 100% unit test pass rate (`pytest`), evaluation suites (`eval_runner.py`), and Quality Gate 1 & 2 code audits.
+* **Static Application Security Testing (`security.yml`):**
+  * Automated **Bandit** SAST scanning for python vulnerability detection.
+  * Automated **GitHub CodeQL** deep semantic code analysis.
+* **Multi-Arch Container Publishing (`docker-publish.yml`):**
+  * Builds and publishes multi-architecture images (`linux/amd64`, `linux/arm64`) to GitHub Container Registry (ghcr.io).
+
+---
+
+### 🏛️ Architecture & Governance Suite:
+* **`ARCHITECTURE.md`:** Comprehensive architectural blueprint covering the streaming SAX parser, state-aware response caching, and Zero-Trust guardrails.
+* **`CONTRIBUTING.md`:** Onboarding guide, environment setup, and two-phase Quality Protocol (Gate 1 & Gate 2).
+* **`SECURITY.md`:** Coordinated vulnerability disclosure policy, SLA response commitments, and supported versions.
+* **`CODE_OF_CONDUCT.md`:** Standard Contributor Covenant v2.1.
+
+---
+
+### 🍳 Multi-Framework Agent Cookbooks (`examples/`):
+* **Claude Desktop:** Configuration snippet and prompt guide.
+* **Cursor IDE:** Native `.cursor/mcp.json` integration.
+* **LangChain & LangGraph (`langchain_agent.py`):** Autonomous ReAct mobile loop navigating UI elements and extracting 2FA verification codes.
+* **Ollama Local Agent (`ollama_local_agent.py`):** Completely offline, zero-API-cost agent driving Android-MCP via open-weight models (`qwen2.5:0.5b`, `llama3.2`).
+
+---
+
+### ⚡ Telemetry & Guardrail Optimization:
+* Pre-compiled regex patterns and static `frozenset` lookups in `GuardrailEngine`, bringing all 15 SLA telemetry benchmarks **100% inside target window**.
+
+---
 
 ## v0.3.0: SLA Performance Benchmark Optimizations, Enterprise Guardrails & Evals Framework
 
