@@ -1,0 +1,97 @@
+# ==============================================================================
+# Android-MCP Enterprise Docker Compose Infrastructure
+#
+# Profiles:
+#   1. Headless (Default / CI / Production):
+#      docker compose --profile headless up -d
+#      Uses ReDroid: ~500MB RAM, sub-second latency, zero UI overhead.
+#
+#   2. Visual (Development / Manual Inspection / Demos):
+#      docker compose --profile visual up -d
+#      Uses Budtmo Docker-Android: Includes web-based noVNC viewer at http://localhost:6080
+# ==============================================================================
+
+version: '3.8'
+
+networks:
+  android-internal:
+    driver: bridge
+    internal: false # Allows outgoing connections for APK downloads while restricting ADB exposure
+
+services:
+  # ----------------------------------------------------------------------------
+  # MCP Server Container (Runs the Android-MCP tools)
+  # ----------------------------------------------------------------------------
+  android-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: buhozurdo/android-mcp:0.3.0
+    container_name: android-mcp-server
+    environment:
+      - ADB_HOST=android-device
+      - ADB_PORT=5555
+      - MOCK_MODE=false
+    depends_on:
+      - android-device
+    networks:
+      - android-internal
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+
+  # ----------------------------------------------------------------------------
+  # Profile: Headless (Production / High-Density Grid) via ReDroid
+  # ----------------------------------------------------------------------------
+  android-device:
+    profiles: ["headless", "default"]
+    image: redroid/redroid:12.0.0-latest
+    container_name: android-redroid-headless
+    privileged: true
+    networks:
+      android-internal:
+        aliases:
+          - android-device
+    # Note: Port 5555 is bound strictly to 127.0.0.1 to prevent external exposure (AGENTS.md Zero-Trust)
+    ports:
+      - "127.0.0.1:5555:5555"
+    volumes:
+      - redroid-data:/data
+    command:
+      - androidboot.use_memfd=1
+      - redroid.width=1080
+      - redroid.height=2400
+      - redroid.fps=30
+      - redroid.gpu.mode=guest
+    restart: unless-stopped
+
+  # ----------------------------------------------------------------------------
+  # Profile: Visual (Development & Live Demo UI) via Budtmo
+  # ----------------------------------------------------------------------------
+  android-device-visual:
+    profiles: ["visual"]
+    image: budtmo/docker-android:emulator_12.0
+    container_name: android-budtmo-visual
+    privileged: true
+    networks:
+      android-internal:
+        aliases:
+          - android-device
+    ports:
+      - "127.0.0.1:5555:5555" # ADB
+      - "127.0.0.1:6080:6080" # noVNC Web UI (Browse to http://localhost:6080)
+    devices:
+      - "/dev/kvm:/dev/kvm"
+    environment:
+      - DEVICE=Samsung Galaxy S10
+      - WEB_VNC=true
+      - EMULATOR_ARGS=-no-audio -no-boot-anim
+    volumes:
+      - budtmo-data:/root/tmp
+    restart: unless-stopped
+
+volumes:
+  redroid-data:
+    driver: local
+  budtmo-data:
+    driver: local

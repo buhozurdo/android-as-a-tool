@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "android": {
+      "command": "python",
+      "args": ["-m", "android_mcp.server"],
+      "env": {
+        "ADB_HOST": "localhost",
+        "ADB_PORT": "5555",
+        "MOCK_MODE": "false"
+      }
+    }
+  }
+}
