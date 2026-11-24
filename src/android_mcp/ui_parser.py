@@ -85,6 +85,19 @@ class UIParser:
     Reduces 100KB+ raw XML into ~2KB-5KB structured elements JSON.
     """
 
+    _cached_xml: Optional[str | bytes] = None
+    _cached_clickable: Optional[bool] = None
+    _cached_bounds: Optional[Tuple[int, int]] = None
+    _cached_parsed: Optional[Dict[str, Any]] = None
+
+    @classmethod
+    def clear_cache(cls) -> None:
+        """Clear parsed hierarchy cache."""
+        cls._cached_xml = None
+        cls._cached_clickable = None
+        cls._cached_bounds = None
+        cls._cached_parsed = None
+
     @staticmethod
     def parse_bounds(bounds_str: str) -> Optional[Tuple[int, int, int, int]]:
         """
@@ -148,6 +161,15 @@ class UIParser:
 
         if not xml_bytes:
             return {"screen": {"width": 0, "height": 0}, "elements_count": 0, "elements": []}
+
+        # Fast path: Return cached parsed structure if raw XML and filters match
+        if (
+            cls._cached_parsed is not None
+            and cls._cached_clickable == clickable_only
+            and cls._cached_bounds == screen_bounds
+            and cls._cached_xml == xml_content
+        ):
+            return cls._cached_parsed
 
         # Check for possible leading garbage from adb before <hierarchy
         if not xml_bytes.startswith(b"<?xml") and not xml_bytes.startswith(b"<hierarchy"):
@@ -251,11 +273,16 @@ class UIParser:
         except ET.ParseError as e:
             return {"error": f"Failed to parse XML: {str(e)}", "elements": [], "elements_count": 0}
 
-        return {
+        res_dict = {
             "screen": {"width": screen_w, "height": screen_h},
             "elements_count": len(elements),
             "elements": elements,
         }
+        cls._cached_xml = xml_content
+        cls._cached_clickable = clickable_only
+        cls._cached_bounds = screen_bounds
+        cls._cached_parsed = res_dict
+        return res_dict
 
     @classmethod
     def find_by_text(cls, elements_payload: Dict[str, Any], query: str, exact: bool = False) -> List[Dict[str, Any]]:

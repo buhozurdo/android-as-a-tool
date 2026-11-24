@@ -65,6 +65,7 @@ Development in this repository strictly enforces a **two-phase iterative quality
 | | `type_text` | `text: str` | Types text with quote escaping and `%s` space encoding. |
 | | `swipe` | `direction: str` | Swipes display (`up`, `down`, `left`, `right`). |
 | | `press_key` | `key: str` | Sends keyevents (`HOME`, `BACK`, `ENTER`, `APP_SWITCH`). |
+| | `batch_actions` | `actions: List[Dict[str, Any]]` | Executes sequential compound actions in a single round-trip. |
 | **Context & Vision** | `take_screenshot` | — | Base64 PNG capture when visual inspection is necessary. |
 | | `get_notifications` | — | Reads system alerts and OTP/2FA with PII redaction. |
 

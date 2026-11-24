@@ -115,6 +115,11 @@ class AndroidMCPServer:
             """Read active notifications from the system (for OTP/2FA or status codes)."""
             return self.get_notifications()
 
+        @server.tool()
+        def batch_actions(actions: List[Dict[str, Any]]) -> Dict[str, Any]:
+            """Execute an ordered sequence of MCP actions in a single compound transaction (Macro Execution)."""
+            return self.batch_actions(actions)
+
     # -----------------------------------------------------------------------
     # Direct Business Logic Methods (Callable via MCP or directly in tests)
     # -----------------------------------------------------------------------
@@ -175,6 +180,44 @@ class AndroidMCPServer:
 
     def get_notifications(self) -> List[Dict[str, Any]]:
         return self.adb.get_notifications()
+
+    def batch_actions(self, actions: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Execute an ordered pipeline of MCP actions in a single compound transaction (Macro Execution).
+        Supported action types: 'tap', 'long_press', 'type_text', 'swipe', 'press_key',
+        'launch_app', 'install_apk', 'uninstall_app', 'get_screen_elements', 'get_notifications', 'take_screenshot'.
+        """
+        results = []
+        for item in actions:
+            action_name = item.get("action")
+            if not action_name:
+                continue
+            if action_name == "tap":
+                res = self.tap(int(item["x"]), int(item["y"]))
+            elif action_name == "type_text":
+                res = self.type_text(str(item["text"]))
+            elif action_name == "long_press":
+                res = self.long_press(int(item["x"]), int(item["y"]), int(item.get("duration_ms", 1000)))
+            elif action_name == "swipe":
+                res = self.swipe(str(item["direction"]))
+            elif action_name == "press_key":
+                res = self.press_key(str(item["key"]))
+            elif action_name == "launch_app":
+                res = self.launch_app(str(item["package"]))
+            elif action_name == "install_apk":
+                res = self.install_apk(str(item["source"]))
+            elif action_name == "uninstall_app":
+                res = self.uninstall_app(str(item["package"]))
+            elif action_name == "get_screen_elements":
+                res = self.get_screen_elements(clickable_only=item.get("clickable_only", True))
+            elif action_name == "get_notifications":
+                res = self.get_notifications()
+            elif action_name == "take_screenshot":
+                res = self.take_screenshot()
+            else:
+                res = f"Unknown action: {action_name}"
+            results.append({"action": action_name, "result": res})
+        return {"status": "success", "count": len(results), "results": results}
 
     def run_stdio(self) -> None:
         """Run MCP stdio transport loop."""

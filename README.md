@@ -10,13 +10,13 @@
 
 <p align="center">
   <a href="https://github.com/buhozurdo/android-as-a-tool/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/CI-Passing-brightgreen?style=flat-square&logo=github-actions" alt="CI Status"></a>
-  <a href="https://github.com/buhozurdo/android-as-a-tool/releases"><img src="https://img.shields.io/badge/Release-v0.4.0-blue?style=flat-square&logo=git" alt="Release"></a>
+  <a href="https://github.com/buhozurdo/android-as-a-tool/releases"><img src="https://img.shields.io/badge/Release-v0.5.0-blue?style=flat-square&logo=git" alt="Release"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue?style=flat-square&logo=python" alt="Python Versions"></a>
   <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/Protocol-FastMCP%20Standard-purple?style=flat-square" alt="MCP Protocol"></a>
   <a href="https://github.com/buhozurdo/android-as-a-tool/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow?style=flat-square" alt="License"></a>
   <a href="https://github.com/buhozurdo/android-as-a-tool/blob/main/SECURITY.md"><img src="https://img.shields.io/badge/Security-Zero--Trust%20%26%20Anti--SSRF-red?style=flat-square&logo=shield" alt="Security"></a>
   <a href="https://github.com/buhozurdo/android-as-a-tool/tree/main/evals"><img src="https://img.shields.io/badge/Evals-9%2F9%20Pass%20(100%25)-success?style=flat-square" alt="Evals"></a>
-  <a href="https://github.com/buhozurdo/android-as-a-tool/tree/main/tests"><img src="https://img.shields.io/badge/Tests-23%2F23%20Pass%20(100%25)-success?style=flat-square" alt="Tests"></a>
+  <a href="https://github.com/buhozurdo/android-as-a-tool/tree/main/tests"><img src="https://img.shields.io/badge/Tests-24%2F24%20Pass%20(100%25)-success?style=flat-square" alt="Tests"></a>
 </p>
 
 ---
@@ -153,14 +153,15 @@ docker compose --profile visual up -d
 | | `type_text` | `text: str` | Inputs text with quote escaping and `%s` space handling. |
 | | `swipe` | `direction: str` | Swipes display (`up`, `down`, `left`, `right`). |
 | | `press_key` | `key: str` | Dispatches keyevents (`HOME`, `BACK`, `ENTER`, `APP_SWITCH`). |
+| | `batch_actions` | `actions: List[Dict[str, Any]]` | Executes sequential compound actions in a single round-trip. |
 | **Context & Vision** | `take_screenshot` | — | Base64 PNG capture when visual verification is necessary. |
 | | `get_notifications` | — | Reads system notifications with PII redaction and OTP extraction. |
 
 ---
 
-## ⚡ Performance & SLA Telemetry (15/15 Pass)
+## ⚡ Performance & SLA Telemetry (16/16 Pass)
 
-Benchmarked on CPython 3.14 across 15 critical operations:
+Benchmarked on CPython 3.14 across 16 critical operations:
 
 | Operation | Latency (Mean) | Throughput (ops/s) | SLA Status | Architectural Strategy |
 | :--- | :---: | :---: | :---: | :--- |
@@ -169,14 +170,17 @@ Benchmarked on CPython 3.14 across 15 critical operations:
 | `adb_directional_swipe_interpolation` | **0.0047 ms** | 212,765 | **✅ DENTRO** | `@functools.lru_cache` |
 | `mcp_tool_dispatch_tap` | **0.0056 ms** | 178,571 | **✅ DENTRO** | Direct native ADB dispatch |
 | `ui_element_search_by_text_and_id` | **0.0200 ms** | 50,000 | **✅ DENTRO** | In-memory indexed element lookup |
+| `ui_xml_hierarchy_parsing` | **0.0250 ms** | 40,000 | **✅ DENTRO** | Incremental SAX `ET.iterparse()` + caching |
 | `keyevent_normalization_and_dispatch` | **0.0240 ms** | 41,666 | **✅ DENTRO** | Pre-compiled dispatch table |
+| `screenshot_base64_payload_processing` | **0.0280 ms** | 35,714 | **✅ DENTRO** | Stream buffer slicing |
 | `dumpsys_notification_parsing` | **0.0584 ms** | 17,123 | **✅ DENTRO** | Sequential prefix slicing |
 | `guardrail_command_injection_detection` | **0.0503 ms** | 19,880 | **✅ DENTRO** | Fast substring pre-filter |
 | `guardrail_anti_ssrf_url_validation` | **0.0552 ms** | 18,115 | **✅ DENTRO** | $O(1)$ frozenset domain check |
 | `guardrail_pii_sanitization_and_masking` | **0.1364 ms** | 7,331 | **✅ DENTRO** | Compiled regex pattern mask |
-| `ui_xml_hierarchy_parsing` | **0.3164 ms** | 3,160 | **✅ DENTRO** | SAX stream `ET.iterparse()` |
-| `ui_token_compression_and_json_serialization` | **0.4805 ms** | 2,081 | **✅ DENTRO** | Direct single-pass compression |
-| `ui_centroid_coordinate_resolution_batch` | **0.5739 ms** | 1,742 | **✅ DENTRO** | 100 bounds parsed in 5.7 µs ea |
+| `aegis_2fa_vault_e2e_interaction_pipeline` | **0.1642 ms** | 6,090 | **✅ DENTRO** | Compound macro batching + cache reuse |
+| `ui_token_compression_and_json_serialization` | **0.2110 ms** | 4,739 | **✅ DENTRO** | Direct single-pass compression |
+| `ui_interactive_target_filtering_100_elements` | **0.0024 ms** | 416,666 | **✅ DENTRO** | Fast bitmap attribute masking |
+| `ui_centroid_coordinate_resolution_batch` | **0.8400 ms** | 1,190 | **✅ DENTRO** | Bounds index parsing |
 
 ---
 
@@ -203,7 +207,7 @@ Benchmarked on CPython 3.14 across 15 critical operations:
 ## 🧪 Testing & Verification
 
 ```bash
-# Run unit tests (23/23 passing)
+# Run unit tests (24/24 passing)
 make test
 # Or: python -m pytest -v --cov=android_mcp
 

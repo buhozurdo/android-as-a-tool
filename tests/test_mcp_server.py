@@ -12,8 +12,8 @@ class TestAndroidMCPServerTools:
         self.mock_adb = ADBClient(mock_mode=True)
         self.server = create_server(adb_client=self.mock_adb)
 
-    def test_all_12_tools_registered(self):
-        """Verify the 12 tools defined in README specification are implemented and callable."""
+    def test_all_13_tools_registered(self):
+        """Verify the 13 tools defined in README specification are implemented and callable."""
         # 1. install_apk
         r1 = self.server.install_apk("sample.apk")
         assert "Success" in r1 or "Installed" in r1
@@ -66,6 +66,11 @@ class TestAndroidMCPServerTools:
         assert isinstance(r12, list)
         assert len(r12) > 0
 
+        # 13. batch_actions
+        r13 = self.server.batch_actions([{"action": "press_key", "key": "HOME"}])
+        assert r13["status"] == "success"
+        assert len(r13["results"]) == 1
+
     def test_screen_elements_interactive_centers(self):
         """Verify UI elements returned by server provide exact centroid for tap target."""
         elements_doc = self.server.get_screen_elements(clickable_only=True)
@@ -88,3 +93,16 @@ class TestAndroidMCPServerTools:
         msg_notifs = [n for n in notifications if "verification code" in n.get("text", "").lower()]
         assert len(msg_notifs) >= 1
         assert "492810" in msg_notifs[0]["text"]
+
+    def test_batch_actions_macro_pipeline(self):
+        """Verify compound batch actions execution for macro pipelines."""
+        actions = [
+            {"action": "tap", "x": 850, "y": 180},
+            {"action": "type_text", "text": "GitHub"},
+            {"action": "tap", "x": 950, "y": 470},
+            {"action": "press_key", "key": "BACK"},
+        ]
+        res = self.server.batch_actions(actions)
+        assert res["status"] == "success"
+        assert res["count"] == 4
+        assert len(res["results"]) == 4

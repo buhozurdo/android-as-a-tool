@@ -22,7 +22,7 @@ FROM python:3.12-slim AS runtime
 
 LABEL org.opencontainers.image.title="Android-MCP" \
       org.opencontainers.image.description="Universal Android Control for AI Agents via Model Context Protocol (MCP) and ADB" \
-      org.opencontainers.image.version="0.4.0" \
+      org.opencontainers.image.version="0.5.0" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.source="https://github.com/buhozurdo/android-as-a-tool"
 

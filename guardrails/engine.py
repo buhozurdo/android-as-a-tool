@@ -107,6 +107,12 @@ class GuardrailEngine:
         Evaluates input text against injection patterns and leaked secrets.
         Returns: (is_allowed, processed_text, violations)
         """
+        # Fast path: benign alphanumeric words without shell metacharacters or secret symbols
+        if len(text) < 60 and text.isascii():
+            if not any(c in text for c in (";", "&", "|", "`", "$", "/", "\\", "@", ":", "<", ">", "{", "}")):
+                if " " not in text and not any(c.isdigit() for c in text):
+                    return True, text, []
+
         violations: List[Dict[str, Any]] = []
         processed = text
 
@@ -184,10 +190,10 @@ class GuardrailEngine:
         if not src:
             return False, "APK source path or URL is empty."
 
-        # Local file paths
+        # Fast path for local file paths
         if not src.startswith(("http://", "https://")):
-            normalized = Path(src).as_posix()
-            if "/etc/" in normalized or "windows/system32" in normalized.lower():
+            normalized = src.replace("\\", "/").lower()
+            if "/etc/" in normalized or "windows/system32" in normalized:
                 return False, f"Access denied to system directory: {source}"
             return True, "Local path accepted."
 
