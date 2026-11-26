@@ -45,7 +45,7 @@ Development in this repository strictly enforces a **two-phase iterative quality
 - **Defensive exception handling**: Explicitly catch domain exceptions (`subprocess.TimeoutExpired`, `SubprocessError`, `ValueError`); silent suppression (`except Exception: pass`) is prohibited.
 - **ADB & UI resilience**: Configurable timeouts (`timeout=15.0`) and graceful handling of screen transitions.
 - **Input/Output validation**: Anti-injection checks on `type_text` and robust bounds parsing in `UIParser`.
-- **Documentation & Traceability**: Clear docstrings and version synchronization in [RELEASE.md](file:///c:/Users/rkens/Project/BuhoZurdo/Public/android-as-a-tool/RELEASE.md).
+- **Documentation & Traceability**: Clear docstrings and version synchronization in the Local Project Manager (`http://localhost:8161` / `project_id: android-mcp`).
 
 > ⚠️ **Golden Rule**: No task is delivered in a "quick and incomplete" state. First establish a solid **Optimal & Acceptable** foundation, then immediately refactor and harden it to the **Well-Crafted** standard.
 
@@ -74,4 +74,4 @@ Development in this repository strictly enforces a **two-phase iterative quality
 ## 4. Commits & Versioning Standards
 
 - Use semantic commit messages (`feat:`, `fix:`, `docs:`, `eval:`, `refactor:`, `test:`).
-- Follow the release checklist and tagging conventions in [RELEASE.md](file:///c:/Users/rkens/Project/BuhoZurdo/Public/android-as-a-tool/RELEASE.md) adhering to SemVer 2.0.0.
+- Manage and publish release notes, version tags, and changelogs through the Local Project Manager (`http://localhost:8161/projects/android-mcp/releases` or via MCP `pm_create_release`) adhering to SemVer 2.0.0.
